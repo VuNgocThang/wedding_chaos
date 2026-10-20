@@ -86,6 +86,8 @@ namespace WeddingChaos.View
             hud.OnRestart = () => LoadLevel(levelIndex);
             hud.OnNext = () => LoadLevel((levelIndex + 1) % levelCount);
             hud.OnPrev = () => LoadLevel((levelIndex + levelCount - 1) % levelCount);
+            hud.LevelCount = levelCount;
+            hud.OnGoTo = n => LoadLevel(Mathf.Clamp(n - 1, 0, levelCount - 1));
             hud.OnBooster = UseBooster;
             GuestView.EmoteSink = hud.Emote;
             hud.SetCoins(coins);

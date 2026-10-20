@@ -35,6 +35,11 @@ namespace WeddingChaos.View
         Rect lastSafe;
 
         public Action OnRestart, OnNext, OnPrev;
+        /// <summary>Settings → "Đi tới level": the 1-based level number the player typed.</summary>
+        public Action<int> OnGoTo;
+        public int LevelCount = 50;
+        InputField goInput;
+        int currentLevel = 1;
         public Action<string> OnBooster;
 
         class Badge { public Transform anchor; public RectTransform rect; public float dx, dy; public CanvasGroup group; public GameObject full, dot; public int mode = 2; }
@@ -162,7 +167,14 @@ namespace WeddingChaos.View
             var gear = R("Settings", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0.5f, 0.5f), new Vector2(100, -90), new Vector2(110, 110));
             var gImg = Img(gear, "circle", Color.white, true); Shadow(gImg);
             Img(Fill(gear, "Icon", 26, 26, 26, 26), "gear", Color.white);
-            var gb = gear.gameObject.AddComponent<Button>(); gb.targetGraphic = gImg; gb.onClick.AddListener(() => { Sfx.Play("ui_tap"); menu.gameObject.SetActive(!menu.gameObject.activeSelf); });
+            var gb = gear.gameObject.AddComponent<Button>(); gb.targetGraphic = gImg; gb.onClick.AddListener(() =>
+            {
+                Sfx.Play("ui_tap");
+                bool open = !menu.gameObject.activeSelf;
+                menu.gameObject.SetActive(open);
+                if (open) menu.SetAsLastSibling();          // above the guest info card and toasts
+                if (open && goInput) goInput.text = currentLevel.ToString();
+            });
 
             var pill = R("LevelPill", safe, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -80), new Vector2(380, 104));
             var pImg = Img(pill, "ui_pill", Palette.Accent); Shadow(pImg, -8, 0.35f);
@@ -192,18 +204,44 @@ namespace WeddingChaos.View
             dramaPct = Txt(R("Pct", drama, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-26, -14), new Vector2(170, 90)), "0%", Display, 60, Palette.Accent, TextAnchor.MiddleRight);
 
             // --- settings menu ---
-            menu = Card("Menu", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(50, -150), new Vector2(420, 526), Color.white);
+            menu = Card("Menu", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(50, -150), new Vector2(420, 624), Color.white);
             PillButton(menu, "Chơi lại", Palette.Accent, Color.white, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(360, 82), 40, () => { menu.gameObject.SetActive(false); OnRestart?.Invoke(); });
             PillButton(menu, "‹ Level trước", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -128), new Vector2(360, 82), 38, () => { menu.gameObject.SetActive(false); OnPrev?.Invoke(); });
             PillButton(menu, "Level sau ›", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -226), new Vector2(360, 82), 38, () => { menu.gameObject.SetActive(false); OnNext?.Invoke(); });
+            // go to any level: a number box + GO
+            var goBox = R("GoTo", menu, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-90, -324), new Vector2(180, 82));
+            var goBg = Img(goBox, "ui_pill", Palette.Hex("#F3E5DF"), true);
+            var goText = Txt(Fill(goBox, "Text", 20, 4, 20, 0), "", Display, 40, Palette.Ink, TextAnchor.MiddleCenter);
+            goText.supportRichText = false;
+            var goHint = Txt(Fill(goBox, "Hint", 20, 4, 20, 0), "Level…", BodyHeavy, 32, new Color(0.23f, 0.15f, 0.19f, 0.45f), TextAnchor.MiddleCenter);
+            goInput = goBox.gameObject.AddComponent<InputField>();
+            goInput.targetGraphic = goBg; goInput.textComponent = goText; goInput.placeholder = goHint;
+            goInput.contentType = InputField.ContentType.IntegerNumber;
+            goInput.characterLimit = 3;
+            void Go()
+            {
+                if (!int.TryParse(goInput.text, out int lv)) { Toast($"Nhập số level từ 1 đến {LevelCount}."); return; }
+                lv = Mathf.Clamp(lv, 1, LevelCount);
+                menu.gameObject.SetActive(false);
+                OnGoTo?.Invoke(lv);
+            }
+            goInput.onEndEdit.AddListener(_ =>
+            {
+#if ENABLE_INPUT_SYSTEM
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                if (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) Go();
+#endif
+            });
+            PillButton(menu, "GO", Palette.Accent, Color.white, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(100, -324), new Vector2(160, 82), 40, Go);
+
             Button soundBtn = null, musicBtn = null;
             void LabelToggles()
             {
                 soundBtn.GetComponentInChildren<Text>().text = Sfx.SoundOn ? "Âm thanh: Bật" : "Âm thanh: Tắt";
                 musicBtn.GetComponentInChildren<Text>().text = Sfx.MusicOn ? "Nhạc: Bật" : "Nhạc: Tắt";
             }
-            soundBtn = PillButton(menu, "Âm thanh", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -324), new Vector2(360, 82), 36, () => { Sfx.SoundOn = !Sfx.SoundOn; LabelToggles(); });
-            musicBtn = PillButton(menu, "Nhạc", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -422), new Vector2(360, 82), 36, () => { Sfx.MusicOn = !Sfx.MusicOn; LabelToggles(); });
+            soundBtn = PillButton(menu, "Âm thanh", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -422), new Vector2(360, 82), 36, () => { Sfx.SoundOn = !Sfx.SoundOn; LabelToggles(); });
+            musicBtn = PillButton(menu, "Nhạc", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -520), new Vector2(360, 82), 36, () => { Sfx.MusicOn = !Sfx.MusicOn; LabelToggles(); });
             LabelToggles();
             menu.parent.Find("MenuShadow").gameObject.SetActive(false);
             menu.gameObject.SetActive(false);
@@ -286,6 +324,7 @@ namespace WeddingChaos.View
         public void SetLevel(int number, string name, string tier = "")
         {
             levelText.text = "LEVEL " + number;
+            currentLevel = number;
             string tag = tier == "super" ? "SIÊU KHÓ" : tier == "hard" ? "KHÓ" : tier == "medium" ? "KHÓ VỪA" : null;
             levelName.text = tag == null ? name : $"<color=#{ColorUtility.ToHtmlStringRGB(TierColor(tier))}>{tag}</color> · {name}";
             levelPill.color = TierColor(tier);
