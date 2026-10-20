@@ -101,7 +101,17 @@ namespace WeddingChaos.View
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
             go.transform.localScale = scale;
-            go.GetComponent<Renderer>().sharedMaterial = Mat(color);
+            var rend = go.GetComponent<Renderer>();
+            rend.sharedMaterial = Mat(color);
+            // Unity's sphere/capsule are 768/832 tris; dozens of them per guest add up fast on low-end GPUs.
+            float size = Mathf.Max(scale.x, Mathf.Max(scale.y, scale.z));
+            if (type == PrimitiveType.Sphere) go.GetComponent<MeshFilter>().sharedMesh = size < 0.16f ? MeshFactory.Sphere(8, 6) : MeshFactory.Sphere();
+            else if (type == PrimitiveType.Capsule) go.GetComponent<MeshFilter>().sharedMesh = size < 0.16f ? MeshFactory.Capsule(8, 3) : MeshFactory.Capsule();
+            // Tiny or paper-flat parts (eyes, petals, tiles, trims) cast no visible shadow: skip them in the shadow pass.
+            float mx = Mathf.Max(scale.x, Mathf.Max(scale.y, scale.z)), mn = Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z));
+            if (mx < 0.16f || mn < 0.03f) rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            rend.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            rend.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             if (!keepCollider) Object.Destroy(go.GetComponent<Collider>());
             return go;
         }

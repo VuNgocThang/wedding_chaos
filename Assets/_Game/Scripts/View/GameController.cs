@@ -74,6 +74,11 @@ namespace WeddingChaos.View
             Setup();
         }
 
+        void Setup()
+        {
+            Application.targetFrameRate = 60;
+        }
+
         void Start()
         {
             SetupCameraAndLight();
@@ -84,11 +89,16 @@ namespace WeddingChaos.View
             hud.OnBooster = UseBooster;
             GuestView.EmoteSink = hud.Emote;
             hud.SetCoins(coins);
+            Sfx.Ensure();
+            Perf.Ensure();
+            if (Debug.isDebugBuild)
+            {
+                // dev builds: "-wcLevel 50" opens a level directly (used for performance runs)
+                var args = System.Environment.GetCommandLineArgs();
+                for (int i = 0; i < args.Length - 1; i++)
+                    if (args[i] == "-wcLevel" && int.TryParse(args[i + 1], out var lv)) levelIndex = Mathf.Clamp(lv - 1, 0, levelCount - 1);
+            }
             LoadLevel(levelIndex);
-        }
-        void Setup()
-        {
-            Application.targetFrameRate = 60;
         }
 
         // ---------- setup ----------
@@ -137,7 +147,7 @@ namespace WeddingChaos.View
         {
             StopAllCoroutines();
             levelIndex = index;
-            if (world != null) { world.gameObject.SetActive(false); Destroy(world.gameObject); }
+            if (world != null) { world.gameObject.SetActive(false); Destroy(world.gameObject); Resources.UnloadUnusedAssets(); }
             views.Clear(); tables.Clear(); tablePos.Clear(); lockedUntil.Clear(); busyTables.Clear(); benchSlots.Clear(); relatedLit.Clear();
             infoTarget = null; freeIds.Clear();
             giftViews.Clear(); ribbonViews.Clear(); reserveTags.Clear(); handLinks.Clear(); pairChoice.Clear(); selPartner = null;
@@ -148,8 +158,10 @@ namespace WeddingChaos.View
             var asset = Resources.Load<TextAsset>($"Levels/level_{index + 1:00}");
             sim = SeatingSim.FromLevel(LevelDef.Parse(asset.text));
             world = new GameObject("World").transform;
+            Perf.IgnoreFor(2f);
 
             BuildHall();
+            BatchHall();
             BuildCrowd();
             BuildBench();
             BuildTables();
@@ -162,8 +174,27 @@ namespace WeddingChaos.View
             GuestView.StagePoint = new Vector3(0, 1.2f, StageZ + 0.5f);
             RefreshBoosters();
             string tip = BlockerTip(index + 1);
+            Sfx.Play("level_start");
+            Sfx.SetDrama(sim.Drama);
+            Sfx.SetMusicLevel(0.32f);
             if (tip != null) hud.Toast(tip, 6f);
             else hud.Toast(sim.Tier == "super" ? "Level SIÊU KHÓ! Tính trước từng chỗ ngồi." : sim.Tier == "hard" ? "Level KHÓ: để ý các mối quan hệ!" : "Kéo khách có vòng vàng vào ghế cùng màu thiệp", 4f);
+        }
+
+        /// <summary>
+        /// The hall decor never moves: merge it into static batches so hundreds of small props cost a
+        /// handful of draw calls. Runs right after BuildHall, when the world holds nothing but decor.
+        /// </summary>
+        void BatchHall()
+        {
+            var hall = new GameObject("Hall").transform;
+            hall.SetParent(world, false);
+            for (int i = world.childCount - 1; i >= 0; i--)
+            {
+                var c = world.GetChild(i);
+                if (c != hall) c.SetParent(hall, true);
+            }
+            StaticBatchingUtility.Combine(hall.gameObject);
         }
 
         Vector3 CellPos(int r, int c) => new Vector3((c - (sim.Cols - 1) / 2f) * CellSize, 0, CrowdTopZ - r * CellSize);
@@ -539,6 +570,7 @@ namespace WeddingChaos.View
                         {
                             hud.SetPlateText(giftViews[e.Index].anchor, e.CountAfter.ToString());
                             StartCoroutine(Bounce(giftViews[e.Index].root));
+                            Sfx.Play("gift_tick", 1f, 1f + Mathf.Max(0, 3 - e.CountAfter) * 0.12f, 0f);
                         }
                         break;
                     case "gift_open":
@@ -547,6 +579,8 @@ namespace WeddingChaos.View
                             var gv = giftViews[e.Index];
                             hud.SetPlateMode(gv.anchor, 0);
                             StartCoroutine(OpenGift(gv.root));
+                            Sfx.Play("gift_open");
+                            StartCoroutine(Later(0.45f, () => Sfx.Play("coin")));
                             hud.Popup(gv.root.position + Vector3.up * 1.2f, "Quà mừng cưới! −5%", true, 0.15f);
                             coins += 10; hud.SetCoins(coins);
                             if (bride) bride.Play(GuestView.Act.Cheer, 1f, null, "sparkle");
@@ -554,7 +588,7 @@ namespace WeddingChaos.View
                         if (pushDrama) PushDrama();
                         break;
                     case "ribbon_cut":
-                        if (e.Index < ribbonViews.Count) StartCoroutine(Later(1.6f, () => { if (ribbonViews[e.Index]) { StartCoroutine(CutRibbon(ribbonViews[e.Index])); hud.Toast("Dây ruy băng đã được cắt, lối mở!"); } }));
+                        if (e.Index < ribbonViews.Count) StartCoroutine(Later(1.6f, () => { if (ribbonViews[e.Index]) { StartCoroutine(CutRibbon(ribbonViews[e.Index])); Sfx.Play("ribbon_cut"); hud.Toast("Dây ruy băng đã được cắt, lối mở!"); } }));
                         break;
                 }
             }
@@ -725,9 +759,19 @@ namespace WeddingChaos.View
 
         // ---------- input ----------
 
+        Vector2Int lastScreen;
+
         void Update()
         {
             if (sim == null) return;
+            // Flex to the screen: reframe when the window/device size or aspect changes.
+            var scr = new Vector2Int(Screen.width, Screen.height);
+            if (cam && scr != lastScreen && scr.x > 0 && scr.y > 0)
+            {
+                lastScreen = scr;
+                cam.ResetAspect();
+                FrameCamera();
+            }
             UpdateHandLinks();
             if (cam)
             {
@@ -864,17 +908,19 @@ namespace WeddingChaos.View
         {
             Deselect();
             ShowInfoFor(gv);
-            if (gv.IsHidden) { gv.Shake(); gv.Emote("question", 1.2f); hud.Toast("Khách bí ẩn! Mở lối để biết họ là ai."); return; }
+            if (gv.IsHidden) { Sfx.Play("deny"); gv.Shake(); gv.Emote("question", 1.2f); hud.Toast("Khách bí ẩn! Mở lối để biết họ là ai."); return; }
             var mate = sim.HandsPartner(gv.Guest);
             bool canLeave = src.Bench || (mate != null ? sim.PairCanLeave(src.R, src.C) : sim.HasPath(src.R, src.C));
             if (!canLeave)
             {
+                Sfx.Play("deny");
                 gv.Shake();
                 gv.Play(GuestView.Act.Shrug, 1f, null, gv.WaitTime > 15 ? "anger" : "sweat");
                 hud.Toast("Bị chặn đường! Đưa những khách phía trước vào chỗ trước.");
                 return;
             }
             sel = src; selView = gv; selHome = gv.transform.position;
+            Sfx.Play("select"); Sfx.Play("lift");
             gv.SetPose(GuestView.Pose.Lift);
             gv.transform.position = selHome + Vector3.up * 0.55f;
             if (mate != null && views.TryGetValue(mate.Id, out var pv) && pv)
@@ -1164,7 +1210,7 @@ namespace WeddingChaos.View
         {
             var src = sel; var gv = selView;
             if (selPartner) { hud.Toast("Hai người nắm tay không chịu tách ra ngồi sofa!"); gv.Emote("hands", 1.2f); return false; }
-            if (!sim.CanBench(src.R, src.C)) { hud.Toast("Sảnh chờ đã đầy."); return false; }
+            if (!sim.CanBench(src.R, src.C)) { Sfx.Play("deny"); hud.Toast("Sảnh chờ đã đầy."); return false; }
             var path = sim.FindPath(src.R, src.C);
             ClearSelectionVisuals();
             int slot = sim.MoveToBench(src.R, src.C);
@@ -1212,6 +1258,7 @@ namespace WeddingChaos.View
             pts.AddRange(nav.FindPath(from, front));
             yield return gv.WalkTo(pts);
             yield return gv.SitAt(slot.Seat);
+            Sfx.Play("bench", 0.8f);
             running--;
             CheckEnd();
         }
@@ -1231,6 +1278,7 @@ namespace WeddingChaos.View
             pts.AddRange(nav.FindPath(from, approach));
             yield return gv.WalkTo(pts);
             yield return gv.SitAt(tv.Anchors[seat]);
+            Sfx.Play("seat", 1f, 1f + seat * 0.05f);
             gv.transform.SetParent(tv.Anchors[seat], true);
             if (reserveTags.TryGetValue(gv.Guest.Id, out var tag) && tag)
             {
@@ -1263,6 +1311,8 @@ namespace WeddingChaos.View
                     ReactHall(-5, tv.transform.position + Vector3.up);
                 }
                 coins += res.PerfectTable ? 15 : 5; hud.SetCoins(coins);
+                Sfx.Play("table_done"); Sfx.Play("cheer", res.PerfectTable ? 1f : 0.7f);
+                StartCoroutine(Later(0.5f, () => Sfx.Play("coin")));
                 yield return tv.Celebrate();
                 PushDrama();
                 if (res.NewTableSpawned) { tables[tv.Color] = TableView.Create(tv.Color, tablePos[tv.Color], world, popIn: true); DecorateReservations(tables[tv.Color]); }
@@ -1278,6 +1328,7 @@ namespace WeddingChaos.View
 
         void PushDrama()
         {
+            Sfx.SetDrama(sim.Drama);
             hud.SetDrama(sim.Drama);
             GuestView.HallDrama = sim.Drama;
         }
@@ -1310,6 +1361,9 @@ namespace WeddingChaos.View
         {
             if (delta == 0) return;
             bool big = Mathf.Abs(delta) >= 20;
+            if (delta >= 20) { Sfx.Play("drama_big"); Sfx.Duck(0.35f, 1.2f); }
+            else if (delta > 0) Sfx.Play("drama_up");
+            else { Sfx.Play("drama_down"); if (delta <= -10) Sfx.Play("cheer", 0.45f); }
             int emotes = 0;
             foreach (var v in GuestView.All.ToArray())
             {
@@ -1386,6 +1440,7 @@ namespace WeddingChaos.View
                 switch (e.Key)
                 {
                     case EffectKeys.CoupleTogether:
+                        Sfx.Play("love");
                         gv.Play(GuestView.Act.Love, 2f, oLook, "heart");
                         if (o) { o.Play(GuestView.Act.Love, 2f, gv.EmoteAnchor); StartCoroutine(Later(0.35f, () => { if (o) o.Emote("heart", 1.6f); })); o.CurrentMood = GuestView.Mood.Love; }
                         gv.CurrentMood = GuestView.Mood.Love;
@@ -1402,7 +1457,10 @@ namespace WeddingChaos.View
                         if (o) o.Play(GuestView.Act.Glare, 0.7f, gv.EmoteAnchor, "anger");
                         gv.Play(GuestView.Act.Throw, 0.9f, oLook, "anger");
                         yield return new WaitForSeconds(0.45f);
+                        Sfx.Play("lift", 0.8f, 0.8f);
                         if (o) yield return ThrowCake(gv.transform.position + Vector3.up * 1.0f, o);
+                        Sfx.Play("splat");
+                        StartCoroutine(Later(0.25f, () => Sfx.Play("fight")));
                         ShakeCam(0.35f, 0.45f);
                         if (o) { o.Splat(3.5f); o.Play(GuestView.Act.Furious, 1.8f, gv.EmoteAnchor, "anger"); o.CurrentMood = GuestView.Mood.Furious; }
                         gv.Play(GuestView.Act.Furious, 1.6f, oLook);
@@ -1565,6 +1623,7 @@ namespace WeddingChaos.View
                 case "bouncer":
                     Deselect(); hud.ShowInfo(null);
                     bouncerMode = !bouncerMode;
+                    if (bouncerMode) Sfx.Play("bouncer");
                     hud.Toast(bouncerMode ? "Bảo vệ: chạm vào BẤT KỲ khách nào trong đám đông, kể cả khách bị kẹt." : "Đã hủy Bảo vệ.", 3.5f);
                     break;
                 case "sofa":
@@ -1575,11 +1634,13 @@ namespace WeddingChaos.View
                     BuildBench();
                     for (int i = 0; i < keep.Count; i++) if (keep[i]) keep[i].transform.SetPositionAndRotation(benchSlots[i].Seat.position, benchSlots[i].Seat.rotation);
                     BuildNav();
+                    Sfx.Play("bench");
                     hud.Toast("Thêm 1 ghế sofa ở Sảnh chờ.");
                     break;
                 case "champagne":
                     boosterCount[id]--;
                     sim.ChangeDrama(-30);
+                    Sfx.Play("champagne"); StartCoroutine(Later(0.4f, () => Sfx.Play("cheer")));
                     PushDrama();
                     hud.Popup(new Vector3(0, 1.5f, StageZ - 1), "Champagne cho cả hội trường! −30%", true);
                     foreach (var g in GuestView.All.ToArray())
@@ -1622,12 +1683,82 @@ namespace WeddingChaos.View
                 yield return null;
             }
             yield return gv.SitAt(slot.Seat);
+            Sfx.Play("bench", 0.8f);
             hud.Toast("Bảo vệ đã đưa " + gv.DisplayName + " ra Sảnh chờ.");
             running--;
             CheckEnd();
         }
 
         // ---------- end ----------
+
+        /// <summary>Time from the start of win.ogg to its big final chord (see Tools/AudioGen WIN_HIT).</summary>
+        const float WinHit = 1.63f;
+
+        /// <summary>
+        /// The wedding celebration plays first (fanfare, church bells, confetti, the hall cheering);
+        /// the result popup only appears once the fanfare lands on its final chord.
+        /// </summary>
+        IEnumerator WinSequence(int stars)
+        {
+            Sfx.Duck(0.05f, 4.5f);
+            Sfx.Play("win");
+            hud.ShowInfo(null); hud.SetChips(new List<(Vector3, int)>());
+            var stage = new Vector3(0, 1.3f, StageZ);
+            StartCoroutine(ConfettiBurst(stage, 16, 2.4f));
+            foreach (var g in GuestView.All.ToArray())
+            {
+                if (!g || g.IsHidden || g.Guest == null) continue;
+                var gg = g;
+                StartCoroutine(Later(Random.Range(0.05f, 0.6f), () => { if (gg) { gg.CurrentMood = GuestView.Mood.Happy; gg.Play(Random.value < 0.6f ? GuestView.Act.Clap : GuestView.Act.Cheer, 2.4f, bride ? bride.EmoteAnchor : null); } }));
+            }
+            if (bride) bride.LookAt(groom ? groom.EmoteAnchor : null, 3f);
+            if (groom) groom.LookAt(bride ? bride.EmoteAnchor : null, 3f);
+
+            yield return new WaitForSeconds(WinHit);
+
+            // the big chord: newlyweds cheer, hearts, confetti rain over the whole hall
+            ShakeCam(0.12f, 0.25f);
+            if (bride) { bride.SetPose(GuestView.Pose.Cheer); bride.Emote("heart", 2.5f); }
+            if (groom) { groom.SetPose(GuestView.Pose.Cheer); groom.Emote("sparkle", 2.5f); }
+            StartCoroutine(ConfettiBurst(stage, 30, 3.6f));
+            foreach (var t in tables.Values) if (t) StartCoroutine(ConfettiBurst(t.transform.position + Vector3.up * 1.2f, 10, 2.6f));
+            int emotes = 0;
+            foreach (var g in GuestView.All.ToArray())
+                if (g && g.Guest != null && !g.IsHidden && emotes < 8 && Random.value < 0.35f) { emotes++; g.Emote(Random.value < 0.5f ? "heart" : "sparkle", 1.6f); }
+
+            yield return new WaitForSeconds(0.45f);
+            hud.ShowEnd("Đám cưới thành công!", $"Drama cuối level: {sim.Drama}%\n+{30 * stars} xu", stars,
+                "Level tiếp theo", () => LoadLevel((levelIndex + 1) % levelCount), () => LoadLevel(levelIndex));
+        }
+
+        IEnumerator ConfettiBurst(Vector3 at, int count, float power)
+        {
+            var root = Palette.Pivot(world, "Confetti", at);
+            var cols = new[] { Palette.Gold, Palette.Flower, Color.white, Palette.Leaf, Palette.Blush, Palette.Hex("#86AEDD") };
+            var bits = new List<(Transform t, Vector3 v, Vector3 spin)>(count);
+            for (int i = 0; i < count; i++)
+            {
+                var b = Palette.Prim(PrimitiveType.Cube, root, Vector3.zero, new Vector3(0.1f, 0.02f, 0.07f), cols[i % cols.Length], name: "Bit").transform;
+                float a = Random.value * Mathf.PI * 2, r = Random.Range(0.4f, 1f) * power * 0.55f;
+                bits.Add((b, new Vector3(Mathf.Cos(a) * r, power * Random.Range(0.9f, 1.4f), Mathf.Sin(a) * r * 0.6f),
+                    new Vector3(Random.Range(200, 600), Random.Range(100, 400), 0)));
+            }
+            for (float k = 0; k < 2.2f; k += Time.deltaTime)
+            {
+                if (!root) yield break;
+                for (int i = 0; i < bits.Count; i++)
+                {
+                    var (t, v, spin) = bits[i];
+                    v += Vector3.down * 7f * Time.deltaTime;
+                    v *= 1f - 1.6f * Time.deltaTime;                 // air drag: confetti flutters down
+                    bits[i] = (t, v, spin);
+                    t.localPosition += v * Time.deltaTime;
+                    t.localRotation *= Quaternion.Euler(spin * Time.deltaTime);
+                }
+                yield return null;
+            }
+            if (root) Destroy(root.gameObject);
+        }
 
         void CheckEnd()
         {
@@ -1641,8 +1772,7 @@ namespace WeddingChaos.View
                     if (bride) { bride.SetPose(GuestView.Pose.Cheer); bride.Emote("heart", 2.5f); }
                     if (groom) { groom.SetPose(GuestView.Pose.Cheer); groom.Emote("sparkle", 2.5f); }
                     coins += 30 * stars; hud.SetCoins(coins);
-                    hud.ShowEnd("Đám cưới thành công!", $"Drama cuối level: {sim.Drama}%\n+{30 * stars} xu", stars,
-                        "Level tiếp theo", () => LoadLevel((levelIndex + 1) % levelCount), () => LoadLevel(levelIndex));
+                    StartCoroutine(WinSequence(stars));
                     break;
                 case GameStatus.LostDrama:
                     ended = true;
@@ -1650,6 +1780,7 @@ namespace WeddingChaos.View
                     if (groom) groom.Play(GuestView.Act.Facepalm, 4f, null, "sweat");
                     foreach (var g in GuestView.All) if (g && g.Guest != null && !g.IsHidden && Random.value < 0.6f) g.Play(Random.value < 0.5f ? GuestView.Act.Gasp : GuestView.Act.Angry, 1.5f);
                     camShakeAmp = 0.35f; camShakeUntil = Time.time + 0.5f;
+                    Sfx.Duck(0.1f, 3.5f); Sfx.Play("lose"); Sfx.Play("gasp");
                     hud.ShowEnd("Đám cưới đổ vỡ!", $"Drama đã đầy. Chỉ còn {sim.Total - sim.Seated} khách nữa thôi!", -1,
                         egoUsed ? null : "Champagne −40% · chơi tiếp",
                         egoUsed ? (System.Action)null : () => { egoUsed = true; sim.ChangeDrama(-40); ended = false; hud.HideEnd(); PushDrama(); RefreshBoosters(); },
@@ -1657,6 +1788,7 @@ namespace WeddingChaos.View
                     break;
                 case GameStatus.LostStuck:
                     ended = true;
+                    Sfx.Duck(0.1f, 3.5f); Sfx.Play("lose");
                     hud.ShowEnd("Kẹt cứng lối vào!", "Không khách nào còn đường vào chỗ ngồi.", -1,
                         egoUsed ? null : "+1 ghế sofa · chơi tiếp",
                         egoUsed ? (System.Action)null : () => { egoUsed = true; boosterCount["sofa"]++; ended = false; hud.HideEnd(); UseBooster("sofa"); },

@@ -66,3 +66,7 @@ CLAUDE.md
 
 # Unity build temp
 .utmp/
+
+# local screenshots and test builds
+/Shots/
+/Builds/

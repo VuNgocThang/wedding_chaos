@@ -69,6 +69,76 @@ namespace WeddingChaos.View
             return m;
         }
 
+        /// <summary>
+        /// Low-poly stand-in for Unity's sphere (768 tris). Same size (diameter 1) and smooth normals,
+        /// so it is a drop-in swap. lon x lat segments; 14x9 is ~230 tris and still reads round at our zoom.
+        /// </summary>
+        public static Mesh Sphere(int lon = 14, int lat = 9)
+        {
+            string key = $"sph{lon}x{lat}";
+            if (cache.TryGetValue(key, out var m) && m) return m;
+            m = Capsuleish(lon, lat, 0f, key);
+            cache[key] = m;
+            return m;
+        }
+
+        /// <summary>Low-poly stand-in for Unity's capsule (height 2, radius 0.5, along Y).</summary>
+        public static Mesh Capsule(int lon = 14, int capRings = 5)
+        {
+            string key = $"cap{lon}x{capRings}";
+            if (cache.TryGetValue(key, out var m) && m) return m;
+            m = Capsuleish(lon, capRings * 2, 0.5f, key);
+            cache[key] = m;
+            return m;
+        }
+
+        /// <summary>Sphere of radius 0.5 whose two halves are pushed apart by +-halfGap along Y (0 = sphere).</summary>
+        static Mesh Capsuleish(int lon, int lat, float halfGap, string name)
+        {
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var tri = new List<int>();
+            const float r = 0.5f;
+            // rings from top pole to bottom pole; the equator ring is duplicated for a capsule's straight part
+            var rings = new List<(float y, float rad, Vector3 nrm)>();
+            for (int i = 0; i <= lat; i++)
+            {
+                float th = Mathf.PI * i / lat;                 // 0 at top
+                float y = Mathf.Cos(th) * r, rad = Mathf.Sin(th) * r;
+                var nrm = new Vector3(0, Mathf.Cos(th), 0);
+                if (halfGap > 0 && i * 2 == lat)
+                {
+                    rings.Add((y + halfGap, rad, new Vector3(0, 0, 0)));
+                    rings.Add((y - halfGap, rad, new Vector3(0, 0, 0)));
+                    continue;
+                }
+                rings.Add((y + (i * 2 < lat ? halfGap : -halfGap), rad, nrm));
+            }
+            for (int i = 0; i < rings.Count; i++)
+            {
+                var (y, rad, nr) = rings[i];
+                for (int j = 0; j <= lon; j++)
+                {
+                    float ph = 2 * Mathf.PI * j / lon;
+                    var dir = new Vector3(Mathf.Cos(ph), 0, Mathf.Sin(ph));
+                    v.Add(new Vector3(dir.x * rad, y, dir.z * rad));
+                    float horiz = rad / r;
+                    n.Add((dir * horiz + new Vector3(0, nr.y, 0)).normalized);
+                }
+            }
+            int w = lon + 1;
+            for (int i = 0; i < rings.Count - 1; i++)
+                for (int j = 0; j < lon; j++)
+                {
+                    int a = i * w + j, b = a + w;
+                    if (i > 0) { tri.Add(a); tri.Add(a + 1); tri.Add(b); }
+                    if (i < rings.Count - 2) { tri.Add(a + 1); tri.Add(b + 1); tri.Add(b); }
+                }
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetTriangles(tri, 0);
+            mesh.RecalculateBounds();
+            mesh.UploadMeshData(false);   // keep readable: static batching and colliders need it
+            return mesh;
+        }
+
         public static GameObject Make(Mesh mesh, Transform parent, Vector3 localPos, Vector3 scale, Color c, string name = "Mesh")
         {
             var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));

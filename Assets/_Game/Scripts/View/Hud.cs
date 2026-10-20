@@ -142,7 +142,7 @@ namespace WeddingChaos.View
             Shadow(img, -8, 0.35f);
             var b = r.gameObject.AddComponent<Button>();
             b.targetGraphic = img;
-            b.onClick.AddListener(() => onClick());
+            b.onClick.AddListener(() => { Sfx.Play("ui_tap"); onClick(); });
             var t = Txt(Fill(r, "Label", 10, 4, 10, 0), label, Display, fontSize, fg, TextAnchor.MiddleCenter);
             return b;
         }
@@ -162,7 +162,7 @@ namespace WeddingChaos.View
             var gear = R("Settings", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0.5f, 0.5f), new Vector2(100, -90), new Vector2(110, 110));
             var gImg = Img(gear, "circle", Color.white, true); Shadow(gImg);
             Img(Fill(gear, "Icon", 26, 26, 26, 26), "gear", Color.white);
-            var gb = gear.gameObject.AddComponent<Button>(); gb.targetGraphic = gImg; gb.onClick.AddListener(() => menu.gameObject.SetActive(!menu.gameObject.activeSelf));
+            var gb = gear.gameObject.AddComponent<Button>(); gb.targetGraphic = gImg; gb.onClick.AddListener(() => { Sfx.Play("ui_tap"); menu.gameObject.SetActive(!menu.gameObject.activeSelf); });
 
             var pill = R("LevelPill", safe, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -80), new Vector2(380, 104));
             var pImg = Img(pill, "ui_pill", Palette.Accent); Shadow(pImg, -8, 0.35f);
@@ -192,10 +192,19 @@ namespace WeddingChaos.View
             dramaPct = Txt(R("Pct", drama, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-26, -14), new Vector2(170, 90)), "0%", Display, 60, Palette.Accent, TextAnchor.MiddleRight);
 
             // --- settings menu ---
-            menu = Card("Menu", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(50, -150), new Vector2(420, 330), Color.white);
+            menu = Card("Menu", safe, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(50, -150), new Vector2(420, 526), Color.white);
             PillButton(menu, "Chơi lại", Palette.Accent, Color.white, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(360, 82), 40, () => { menu.gameObject.SetActive(false); OnRestart?.Invoke(); });
             PillButton(menu, "‹ Level trước", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -128), new Vector2(360, 82), 38, () => { menu.gameObject.SetActive(false); OnPrev?.Invoke(); });
             PillButton(menu, "Level sau ›", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -226), new Vector2(360, 82), 38, () => { menu.gameObject.SetActive(false); OnNext?.Invoke(); });
+            Button soundBtn = null, musicBtn = null;
+            void LabelToggles()
+            {
+                soundBtn.GetComponentInChildren<Text>().text = Sfx.SoundOn ? "Âm thanh: Bật" : "Âm thanh: Tắt";
+                musicBtn.GetComponentInChildren<Text>().text = Sfx.MusicOn ? "Nhạc: Bật" : "Nhạc: Tắt";
+            }
+            soundBtn = PillButton(menu, "Âm thanh", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -324), new Vector2(360, 82), 36, () => { Sfx.SoundOn = !Sfx.SoundOn; LabelToggles(); });
+            musicBtn = PillButton(menu, "Nhạc", Palette.Hex("#F3E5DF"), Palette.Ink, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -422), new Vector2(360, 82), 36, () => { Sfx.MusicOn = !Sfx.MusicOn; LabelToggles(); });
+            LabelToggles();
             menu.parent.Find("MenuShadow").gameObject.SetActive(false);
             menu.gameObject.SetActive(false);
 
@@ -259,7 +268,7 @@ namespace WeddingChaos.View
             Img(badge, "circle", Palette.Accent);
             var count = Txt(Fill(badge, "Text", 0, 3, 0, 0), "1", Display, 38, Color.white, TextAnchor.MiddleCenter);
             var b = r.gameObject.AddComponent<Button>(); b.targetGraphic = img;
-            b.onClick.AddListener(() => OnBooster?.Invoke(id));
+            b.onClick.AddListener(() => { Sfx.Play("ui_tap"); OnBooster?.Invoke(id); });
             boosters[id] = (b, count);
         }
 
@@ -318,6 +327,7 @@ namespace WeddingChaos.View
         {
             if (!anchor) return;
             foreach (var e in emotes) if (e.anchor == anchor && e.rect) { e.icon.sprite = IconFactory.Get(icon); e.t = 0; e.dur = seconds; return; }
+            Sfx.Play("emote", 1f, 1f, 0.12f);
             var r = R("Emote", emoteLayer, Vector2.zero, Vector2.zero, new Vector2(0.2f, 0.1f), Vector2.zero, new Vector2(110, 110));
             var bg = Img(r, "emote_bg", Color.white); Shadow(bg, -4, 0.28f);
             var ic = Img(Fill(r, "Icon", 18, 16, 10, 18), icon, Color.white);
@@ -537,9 +547,21 @@ namespace WeddingChaos.View
             return new Vector2(vp.x * size.x - safe.anchorMin.x * size.x, vp.y * size.y - safe.anchorMin.y * size.y);
         }
 
+        CanvasScaler scaler;
+
+        /// <summary>Tall phones scale UI by width, wide screens (tablets, foldables) by height, so nothing overflows.</summary>
+        void FitScaler()
+        {
+            if (!scaler) scaler = GetComponent<CanvasScaler>();
+            if (!scaler || Screen.height <= 0) return;
+            float aspect = (float)Screen.width / Screen.height, refAspect = 1080f / 1920f;
+            scaler.matchWidthOrHeight = aspect > refAspect ? 1f : 0f;
+        }
+
         void LateUpdate()
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
+            FitScaler();
             for (int i = badges.Count - 1; i >= 0; i--)
             {
                 var b = badges[i];
