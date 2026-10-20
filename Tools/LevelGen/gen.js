@@ -31,8 +31,10 @@ function spec(i) {
   const drama = [[0, 0, 5, 10, 10], [30, 35, 35, 40, 40], [45, 50, 50, 55, 55], [60, 60, 65, 65, 70]][T][c];
   const hidden = i < UNLOCK.hidden ? 0 : [1, 2, 3, 4][T] + Math.floor(c / 2);
   const budget = i === 1 ? 0 : [c === 0 ? 1 : 1 + c, 6 + c, 7 + 2 * c, 10 + 2 * c][T];
-  const lo = [0.85 - 0.035 * c, 0.58 - 0.03 * c, 0.32 - 0.03 * c, 0.06 - 0.01 * c][T];
-  const hi = [1.01, 0.78 - 0.03 * c, 0.5 - 0.03 * c, 0.2 - 0.02 * c][T];
+  // difficulty bands. Easy: the casual bot must win. Medium and up: measured with the thinking "planner" bot,
+  // which plays like an attentive human (the casual bot made boss levels look far harder than they play).
+  const lo = [0.85 - 0.035 * c, 0.62 - 0.03 * c, 0.35 - 0.03 * c, 0.10 - 0.01 * c][T];
+  const hi = [1.01, 0.85 - 0.03 * c, 0.58 - 0.03 * c, 0.30 - 0.02 * c][T];
   return { i, c, tier, T, N, colors, pillars: Math.max(0, pillars), empties, bench, drama, hidden, budget, lo, hi, name: NAMES[i - 1] };
 }
 
@@ -166,14 +168,39 @@ function build(sp, R) {
     if (!okHand(a) || !okHand(b) || a.c !== b.c) continue;
     if (connect(a, b, 'hands')) h++;
   }
-  // reserved seats: distinct seat per colour, never on hand-holders or grandmas
+  // VIPs (name-card seats). Two things make them bite:
+  //  C) they stand deep in the crowd, behind guests of other colours, so reaching them in time takes planning;
+  //  B) each one is tied by a relationship to a guest of its own colour, so its fixed seat clashes with where
+  //     that guest wants to sit (ex/rival must avoid it, a couple must sit right beside it) — an ordering puzzle.
+  // Anyone may still sit on a VIP chair (+15%), and a VIP that waits past its patience gets angry (+15%).
   const taken = new Set();
-  for (let h = 0, tries = 0; h < nRes && tries < 80; tries++) {
-    const g = guests[Math.floor(R() * guests.length)];
-    if (g.reserved >= 0 || g.t === 'grandma' || g.links.some(l => l.kind === 'hands')) continue;
+  const okVip = g => isGuest(g) && g.reserved < 0 && g.t !== 'grandma' && g.t !== 'kid' && !g.links.some(l => l.kind === 'hands');
+  const vipCands = [];
+  for (let k = 0; k < cells.length; k++) {
+    const g = cells[k]; if (!okVip(g)) continue;
+    const r = Math.floor(k / cols), c = k % cols;
+    const minRow = sp.T === 0 ? 1 : sp.T === 1 ? 2 : 3;
+    if (r < Math.min(minRow, rows - 1)) continue;
+    const front = at(r - 1, c);
+    let w = 1 + r * (sp.T >= 2 ? 1.5 : 1);
+    if (isGuest(front) && front.c !== g.c) w += 2;                 // a different colour stands in the way
+    if (g.links.some(l => ['ex', 'rival', 'couple'].includes(l.kind) && l.to.c === g.c)) w += 3;
+    vipCands.push({ g, w });
+  }
+  const linkKinds = ['ex', 'couple', 'rival'];
+  for (let h = 0, tries = 0; h < nRes && tries < 80 && vipCands.length; tries++) {
+    let rr = R() * vipCands.reduce((a, x) => a + x.w, 0), idx = 0;
+    for (let j = 0; j < vipCands.length; j++) { rr -= vipCands[j].w; if (rr <= 0) { idx = j; break; } }
+    const { g } = vipCands[idx];
     const seat = Math.floor(R() * 4);
-    if (taken.has(g.c + seat)) continue;
-    taken.add(g.c + seat); g.reserved = seat; h++;
+    if (taken.has(g.c + seat) || g.reserved >= 0) continue;
+    taken.add(g.c + seat); g.reserved = seat; g.hidden = false; h++;
+    vipCands.splice(idx, 1);
+    // B: make sure the VIP has a same-colour relationship that cares about seats (not on the easy tutorial tier)
+    if (sp.T >= 1 && !g.links.some(l => linkKinds.includes(l.kind) && l.to.c === g.c)) {
+      const mate = pick(x => x !== g && x.c === g.c && x.t !== 'kid' && x.t !== 'grandma' && x.reserved < 0 && !x.links.some(l => l.kind === 'hands') && x.links.length < 2);
+      if (mate) connect(g, mate, linkKinds[Math.floor(R() * (sp.T >= 2 ? 3 : 2))]);
+    }
   }
   // drop trailing rows that hold nobody
   let usedRows = rows;
@@ -205,7 +232,9 @@ function evaluate(level, R, runs = 100) {
   if (!best) return null;
   let gw = 0, cw = 0, nw = 0;
   for (let k = 0; k < runs; k++) { if (S.greedy(s0, R).win) gw++; if (S.careful(s0, R).win) cw++; if (S.noisy(s0, R, 0.3).win) nw++; if (S.noisy(s0, R, 0.3).win) nw++; }
-  return { greedy: gw / runs, careful: cw / runs, noisy: nw / (2 * runs), score: nw / (2 * runs), best: best.drama, nodes: sol.nodes, path: best.path };
+  let pw = 0; const pr = 30; for (let k = 0; k < pr; k++) if (S.planner(s0, R).win) pw++;
+  const noisy = nw / (2 * runs), plan = pw / pr;
+  return { greedy: gw / runs, careful: cw / runs, noisy, planner: plan, score: level.tierIndex === 0 ? noisy : plan, best: best.drama, nodes: sol.nodes, path: best.path };
 }
 
 function labelOf(n) { let s = ''; n++; while (n > 0) { n--; s = String.fromCharCode(97 + n % 26) + s; n = Math.floor(n / 26); } return s; }
@@ -226,13 +255,13 @@ function toText(sp, level, ev) {
   const rows = [];
   for (let r = 0; r < level.rows; r++) rows.push(level.cells.slice(r * level.cols, r * level.cols + level.cols).map(tok).join(' '));
   const lines = [
-    `// gen: tier ${sp.tier}, casual win ${(ev.noisy * 100).toFixed(0)}%, greedy win ${(ev.greedy * 100).toFixed(0)}%, careful win ${(ev.careful * 100).toFixed(0)}%, solver best drama ${ev.best}`,
+    `// gen: tier ${sp.tier}, casual win ${(ev.noisy * 100).toFixed(0)}%, greedy win ${(ev.greedy * 100).toFixed(0)}%, careful win ${(ev.careful * 100).toFixed(0)}%, planner win ${(ev.planner * 100).toFixed(0)}%, solver best drama ${ev.best}`,
     `name: ${sp.name}`, `tier: ${sp.tier}`, `bench: ${level.bench}`, `drama: ${level.drama}`, 'grid:', ...rows];
   const resv = level.cells.filter(x => x && typeof x === 'object' && !x.gift && x.reserved >= 0);
   if (level.linkLines.length || resv.length || level.ribbons.length) {
     lines.push('links:');
     for (const l of level.linkLines) lines.push(`${l.kind} ${labels.get(l.a)} ${labels.get(l.b)}`);
-    for (const g of resv) lines.push(`reserve ${labels.get(g)} ${g.reserved}`);
+    for (const g of resv) lines.push(`reserve ${labels.get(g)} ${g.reserved}` + (g.patience >= 0 ? ` ${g.patience}` : ''));
     for (const b of level.ribbons) lines.push(`ribbon ${b.col} ${b.r1},${b.c1} ${b.r2},${b.c2}`);
   }
   lines.push('solution: ' + ev.path.map(S.moveText).join(' '));
@@ -246,12 +275,24 @@ function generate(i, maxTries, timeMs) {
   for (let seed = 1; seed <= maxTries && Date.now() - t0 < timeMs; seed++) {
     const R = S.rng(i * 100003 + seed * 7919);
     const lvl = build(sp, R);
+    lvl.tierIndex = sp.T;
     // feature check
     const feat = FEATURE[i] || {};
     const cnt = k => k === 'gift' ? lvl.cells.filter(x => x && x.gift).length : k === 'reserve' ? lvl.guests.filter(g => g.reserved >= 0).length : k === 'ribbon' ? lvl.ribbons.length : k === 'triangle' ? lvl.guests.filter(g => g.links.length >= 2).length : ['grandma', 'uncle', 'gossip', 'kid'].includes(k) ? lvl.guests.filter(g => g.t === k).length : lvl.linkLines.filter(l => l.kind === k).length;
     if (Object.entries(feat).some(([k, n]) => cnt(k) < (k === 'gossip' ? 2 : n))) continue;
-    const ev = evaluate(lvl, S.rng(seed * 31 + i), 60);
+    let ev = evaluate(lvl, S.rng(seed * 31 + i), 60);
     if (!ev) continue;
+    const vips = lvl.guests.filter(g => g.reserved >= 0);
+    if (vips.length) {
+      // C: patience = the turn the best known line seats the VIP, plus a little slack by tier
+      const slack = [6, 4, 3, 2][sp.T];
+      for (const v of vips) {
+        const at = ev.path.findIndex(m => m.g === v && m.bench === undefined);
+        v.patience = (at < 0 ? ev.path.length : at + 1) + slack;
+      }
+      ev = evaluate(lvl, S.rng(seed * 37 + i), 60);
+      if (!ev) { vips.forEach(v => delete v.patience); continue; }
+    }
     if (sp.T === 0 && ev.best > sp.drama) continue;          // easy levels must allow a clean finish
     const mid = (sp.lo + Math.min(1, sp.hi)) / 2;
     const dist = ev.score < sp.lo ? sp.lo - ev.score : ev.score > sp.hi ? ev.score - sp.hi : 0;
@@ -272,7 +313,7 @@ if (require.main === module) {
     const { best } = generate(i, tries, time);
     if (!best) { console.log(`L${i} FAILED`); continue; }
     fs.writeFileSync(`${outDir}/level_${String(i).padStart(2, '0')}.txt`, toText(sp, best.lvl, best.ev));
-    console.log(`L${i} ${sp.tier} N${sp.N} c${sp.colors} bench${sp.bench} drama${sp.drama} links${best.lvl.linkLines.length} -> noisy ${best.ev.noisy.toFixed(2)} greedy ${best.ev.greedy.toFixed(2)} careful ${best.ev.careful.toFixed(2)} score ${best.ev.score.toFixed(2)} band [${sp.lo.toFixed(2)},${sp.hi.toFixed(2)}] dist ${best.dist.toFixed(2)} best ${best.ev.best}`);
+    console.log(`L${i} ${sp.tier} N${sp.N} c${sp.colors} bench${sp.bench} drama${sp.drama} links${best.lvl.linkLines.length} -> noisy ${best.ev.noisy.toFixed(2)} greedy ${best.ev.greedy.toFixed(2)} careful ${best.ev.careful.toFixed(2)} planner ${best.ev.planner.toFixed(2)} score ${best.ev.score.toFixed(2)} band [${sp.lo.toFixed(2)},${sp.hi.toFixed(2)}] dist ${best.dist.toFixed(2)} best ${best.ev.best}`);
   }
 }
 

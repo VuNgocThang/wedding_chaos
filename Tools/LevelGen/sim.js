@@ -1,7 +1,7 @@
 // Wedding Chaos rules — exact mirror of Core/SeatingSim.cs (links + blockers). Used by the level generator.
 'use strict';
 const SC = { CouplePenalty: 15, CoupleBonus: -10, ExFight: 30, ExGlare: 10, GrandmaNotStar: 20, GrandmaScold: 20,
-  GossipBonus: -15, Perfect: -5, Rival: 20, Bff: -8, Family: -5, KidCries: 15, Crush: -12, Gift: -5 };
+  GossipBonus: -15, Perfect: -5, Rival: 20, Vip: 15, VipLate: 15, Bff: -8, Family: -5, KidCries: 15, Crush: -12, Gift: -5 };
 const left = k => (k + 3) % 4, right = k => (k + 1) % 4, opp = k => (k + 2) % 4;
 const adjacent = (a, b) => left(a) === b || right(a) === b;
 const clamp = d => Math.max(0, Math.min(100, d));
@@ -31,14 +31,14 @@ function init(level) {
   const tables = {}; colors.forEach(c => tables[c] = { seats: [null, null, null, null], gen: 1, done: false, bad: false });
   const ribbons = (level.ribbons || []).map(x => ({ ...x }));
   return { rows, cols, g, bench: Array(level.bench).fill(null), tables, drama: clamp(level.drama), placed: {}, seated: 0, total,
-    gifts, giftN, ribbons, cut: ribbons.map(() => false) };
+    gifts, giftN, ribbons, cut: ribbons.map(() => false), turn: 0, angry: [] };
 }
 
 function clone(s) {
   return { rows: s.rows, cols: s.cols, g: s.g.map(r => r.slice()), bench: s.bench.slice(),
     tables: Object.fromEntries(Object.entries(s.tables).map(([c, t]) => [c, { ...t, seats: t.seats.slice() }])),
     drama: s.drama, placed: { ...s.placed }, seated: s.seated, total: s.total,
-    gifts: s.gifts, giftN: s.giftN.slice(), ribbons: s.ribbons, cut: s.cut.slice() };
+    gifts: s.gifts, giftN: s.giftN.slice(), ribbons: s.ribbons, cut: s.cut.slice(), turn: s.turn, angry: s.angry.slice() };
 }
 
 function edgeBlocked(s, ya, xa, yb, xb) {
@@ -72,6 +72,8 @@ function effects(s, g, k) {
   const t = s.tables[g.c], se = t.seats, out = [];
   const L = se[left(k)], R = se[right(k)];
   const near = p => (L && p(L)) ? L : (R && p(R)) ? R : null;
+  const vip = vipOfSeat(s, g, k);
+  if (vip) out.push({ d: SC.Vip, key: 'vip_seat_taken' });
   if (g.t === 'grandma' && k !== 2) out.push({ d: SC.GrandmaNotStar, key: 'grandma_not_star' });
   const sc = g.t === 'grandma' ? near(x => x.t === 'uncle') : g.t === 'uncle' ? near(x => x.t === 'grandma') : null;
   if (sc) out.push({ d: SC.GrandmaScold, key: 'scold' });
@@ -98,12 +100,21 @@ function remainingOf(s, c) { let n = 0; for (const x of unseated(s)) if (x.c ===
 function partner(g) { for (const l of g.links) if (l.kind === 'hands') return l.to; return null; }
 function locate(s, g) { for (let r = 0; r < s.rows; r++) for (let c = 0; c < s.cols; c++) if (s.g[r][c] === g) return [r, c]; return null; }
 
+/** VIP sits on its name-card seat while free, else anywhere free; others may sit anywhere (a VIP seat costs drama). */
 function seatsFor(s, g) {
   const t = s.tables[g.c]; if (!t || t.done) return [];
-  if (g.reserved >= 0) return t.seats[g.reserved] ? [] : [g.reserved];
-  const res = new Set(); for (const o of unseated(s)) if (o !== g && o.c === g.c && o.reserved >= 0) res.add(o.reserved);
-  const out = []; for (let k = 0; k < 4; k++) if (!t.seats[k] && !res.has(k)) out.push(k);
+  if (g.reserved >= 0 && !t.seats[g.reserved]) return [g.reserved];
+  const out = []; for (let k = 0; k < 4; k++) if (!t.seats[k]) out.push(k);
   return out;
+}
+function vipOfSeat(s, g, k) { for (const o of unseated(s)) if (o !== g && o.c === g.c && o.reserved === k) return o; return null; }
+/** one player move done: advance the clock; VIPs out of patience get angry once (+15). */
+function endTurn(n) {
+  n.turn++;
+  for (const g of unseated(n)) {
+    if (!(g.patience >= 0) || n.turn < g.patience || n.angry.includes(g.id)) continue;
+    n.angry.push(g.id); n.drama = clamp(n.drama + SC.VipLate);
+  }
 }
 
 function pairCanLeave(s, r, c) {
@@ -174,11 +185,13 @@ function apply(s, m) {
     leaveCell(n, pos[0], pos[1], p);
     place(n, m.g, m.k);
     place(n, p, m.j);
+    endTurn(n);
     return n;
   }
   if (m.src[0] === 'g') leaveCell(n, m.src[1], m.src[2], m.g); else n.bench[m.src[1]] = null;
-  if (m.bench !== undefined) { n.bench[m.bench] = m.g; return n; }
+  if (m.bench !== undefined) { n.bench[m.bench] = m.g; endTurn(n); return n; }
   place(n, m.g, m.k);
+  endTurn(n);
   return n;
 }
 
@@ -186,7 +199,8 @@ function key(s) {
   return s.g.map(r => r.map(x => x === null ? '.' : isG(x) ? x.id : x).join(',')).join('/') + '|' +
     s.bench.filter(Boolean).map(x => x.id).sort((a, b) => a - b).join(',') + '|' +
     Object.entries(s.tables).map(([c, t]) => c + t.gen + t.seats.map(x => x ? x.id : '.').join(':')).join(';') + '|' +
-    s.giftN.join(',') + s.cut.map(x => x ? 1 : 0).join('') + '|' + s.drama;
+    s.giftN.join(',') + s.cut.map(x => x ? 1 : 0).join('') + '|' + s.drama +
+    (unseated(s).some(g => g.patience >= 0 && !s.angry.includes(g.id)) ? '|' + s.turn : '') + s.angry.map(x => 'a' + x).join('');
 }
 
 function solve(s0, limit = 80000) {
@@ -256,4 +270,31 @@ function moveText(m) {
   return from + '>' + (m.bench !== undefined ? 'b' : m.k);
 }
 
-module.exports = { init, solve, greedy, careful, noisy, rng, moves, apply, moveText, SC, partner };
+/** Thinking player: tries every move, scores it by the drama after it plus the best follow-up (one step of
+ *  lookahead), avoids the bench unless needed. Much closer to a real, attentive player than the casual bot. */
+function planner(s0, R, limit = 100) {
+  let s = s0;
+  for (let step = 0; step < 400; step++) {
+    if (s.seated === s.total) return { win: true, drama: s.drama };
+    const ms = moves(s); if (!ms.length) return { win: false, why: 'stuck' };
+    let best = null, bestV = Infinity;
+    for (const m of ms) {
+      const n = apply(s, m);
+      if (n.drama >= limit) continue;
+      let v = n.drama + (m.bench !== undefined ? 3 : 0);
+      if (n.seated < n.total) {
+        const ms2 = moves(n);
+        if (!ms2.length) v += 1000;
+        else { let b2 = Infinity; for (const m2 of ms2) if (m2.bench === undefined) b2 = Math.min(b2, m2.d); v += Math.max(0, b2 === Infinity ? 15 : b2) * 0.7; }
+      }
+      v += R() * 0.5;
+      if (v < bestV) { bestV = v; best = m; }
+    }
+    if (!best) return { win: false, why: 'drama' };
+    s = apply(s, best);
+    if (s.drama >= limit) return { win: false, why: 'drama' };
+  }
+  return { win: false, why: 'loop' };
+}
+
+module.exports = { init, solve, greedy, careful, noisy, planner, rng, moves, apply, moveText, SC, partner };

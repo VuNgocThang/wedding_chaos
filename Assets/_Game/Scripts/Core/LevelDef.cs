@@ -23,7 +23,8 @@ namespace WeddingChaos.Core
     /// Legacy pair suffixes still parse: x1/x2 = ex pair, c1/c2 = couple pair.
     /// Link lines: couple|ex|rival|bff A B (symmetric), parent P K (P is the kid K's parent), crush A B (A secretly loves B),
     /// hands A B (two neighbours holding hands: they leave together and need two seats side by side).
-    /// Blocker lines (same block): reserve A 2 (seat 2 of A's colour table is A's, and only A's),
+    /// Blocker lines (same block): reserve A 2 [P] (seat 2 of A's colour table carries A's name card; anyone else sitting
+    /// there while A still waits costs +15%; optional P = A's patience in turns, after which A gets angry once: +15%),
     /// ribbon R 2,1 3,1 (red ribbon across the edge between cells 2,1 and 3,1; cut when a red table is completed).
     /// Solution moves (optional, used by tests and hints): "r,c>k" crowd to seat k, "r,c>b" crowd to bench, "bI>k" bench slot I to seat k,
     /// "r,c>k+j" a hand-holding pair: the guest at r,c to seat k and the partner to seat j.
@@ -36,7 +37,7 @@ namespace WeddingChaos.Core
         public int StartDrama;
         public List<string[]> Grid = new List<string[]>();
         public List<(string kind, string a, string b)> Links = new List<(string, string, string)>();
-        public List<(string label, int seat)> Reserves = new List<(string, int)>();
+        public List<(string label, int seat, int patience)> Reserves = new List<(string, int, int)>();
         public List<(char color, int r1, int c1, int r2, int c2)> Ribbons = new List<(char, int, int, int, int)>();
         public string Solution = "";
 
@@ -64,7 +65,8 @@ namespace WeddingChaos.Core
                     else if (block == "links")
                     {
                         string kind = toks[0].ToLowerInvariant();
-                        if (kind == "reserve" && toks.Length == 3) def.Reserves.Add((toks[1], int.Parse(toks[2])));
+                        if (kind == "reserve" && (toks.Length == 3 || toks.Length == 4))
+                            def.Reserves.Add((toks[1], int.Parse(toks[2]), toks.Length == 4 ? int.Parse(toks[3]) : -1));
                         else if (kind == "ribbon" && toks.Length == 4)
                         {
                             var a = toks[2].Split(','); var b = toks[3].Split(',');

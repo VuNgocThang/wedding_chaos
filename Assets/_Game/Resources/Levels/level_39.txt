@@ -1,34 +1,34 @@
-// gen: tier hard, casual win 26%, greedy win 25%, careful win 40%, solver best drama 30
+// gen: tier hard, casual win 1%, greedy win 0%, careful win 15%, planner win 40%, solver best drama 32
 name: Chuyện tình tay ba
 tier: hard
 bench: 1
 drama: 55
 grid:
-B@a Y@b Y G@c R@d Y
-R@e Y # B@f G Bk@g
-Ys G@h G@i G@j ?R@k #
-B@l R@m G@n G@o Bs@p G
-G@q ?G@r G@s Bs@t Ys Bg
-Y@u ?B ?Y G@v # #
-# . . . . .
+B@a Y@b Y@c G@d G@e R@f
+Rk@g B@h Bk@i G ?R G
+?G@j ?Y@k G # Bu@l #
+G@m # Bu Y@n R G@o
+B@p Y@q B@r ?G@s Ys@t G@u
+G@v Y@w # . Ys@x B@y
+. # . . G .
 links:
-couple m d
-ex m k
-couple m e
-rival v q
-couple n c
-rival n o
-couple p f
-rival p a
-bff r n
-rival b a
-couple o h
-ex t l
-parent l g
-hands j o
-hands h i
-hands n s
-reserve a 0
-reserve f 3
-reserve u 2
-solution: 0,3>2 0,1>3 0,2>1 0,5>0 1,3>3 0,4>2 2,3>0+1 3,4>2 4,3>1 5,3>3 2,4>1 1,4>1 3,5>3 0,0>b 1,0>0 b0>0 5,1>1 1,5>0 4,1>0 3,1>3 3,0>3 5,0>2 4,4>0 2,0>1 5,2>2 4,5>2 4,0>2 1,1>3 2,1>0+1 3,2>2+3
+bff e j
+rival t q
+parent f g
+couple t b
+couple w c
+rival w k
+bff e m
+ex y h
+ex h a
+parent l i
+ex r p
+hands o u
+hands d e
+hands t x
+ex n b
+ex v s
+reserve n 2 23
+reserve v 3 18
+reserve y 2 27
+solution: 0,5>3 0,0>0 1,0>2 2,0>2 0,3>0+1 2,1>0 1,4>1 0,1>1 2,4>1 3,4>0 4,4>2+3 0,2>0 3,3>2 5,5>2 3,2>3 4,2>2 1,1>1 4,1>1 5,1>3 5,0>3 3,5>1+2 3,0>0 2,2>3 1,5>0 4,3>2 6,4>1 1,3>3 1,2>b 4,0>0 b0>3

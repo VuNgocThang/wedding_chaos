@@ -1,29 +1,28 @@
-// gen: tier hard, casual win 39%, greedy win 62%, careful win 95%, solver best drama 15
+// gen: tier hard, casual win 22%, greedy win 28%, careful win 55%, planner win 47%, solver best drama 35
 name: Bố cô dâu phát biểu
 tier: hard
 bench: 1
 drama: 50
 grid:
-R@a B@b G@c G@d G@e Y@f
-Y G@g Yk@h ?G R@i #
-$Y1 $G2 R@j R@k G ?R@l
-G@m G Gk@n G@o B ?G@p
-?B # # Y@q R Ru@r
-# . . . B@s G
-. . R . . .
+R@a Y@b Bg@c Y@d G@e R
+Y R R Bu@f ?R Y@g
+R@h $R2 ?Yg $Y2 Y@i R@j
+G ?Y@k Y@l R@m R G@n
+Ru@o B B@p ?R # .
+. . G@q # . #
+. # . . . R
 links:
-couple m c
-rival m p
-crush q f
-ex a k
-ex i j
-parent f h
-rival l k
-parent p n
-ex i r
-couple e o
-ex e g
-couple b s
-reserve d 0
-reserve j 0
-solution: 0,1>3 0,4>1 1,4>2 1,3>2 1,2>0 0,5>1 0,0>1 2,4>3 2,5>3 1,0>2 3,4>0 0,3>0 3,0>3 0,2>2 1,1>0 3,1>1 3,5>0 3,2>1 4,0>1 2,2>b b0>0 2,3>3 4,4>1 5,4>2 6,2>2 4,3>3 5,5>3 4,5>0 3,3>b b0>2
+couple k d
+couple m a
+couple q e
+couple o h
+ex o j
+couple l g
+rival l b
+couple g i
+couple p c
+ex p f
+couple n e
+reserve n 1 23
+reserve p 3 32
+solution: 0,1>1 0,3>0 0,0>1 1,0>2 2,0>0 3,0>0 3,1>3 4,0>3 3,2>3 3,3>2 0,4>2 5,2>3 1,3>1 1,1>2 4,3>3 0,5>0 1,5>2 6,5>1 2,5>0 3,5>1 2,4>1 1,2>1 1,4>3 3,4>2 4,1>0 4,2>b b0>3 0,2>b b0>2 2,2>b b0>0

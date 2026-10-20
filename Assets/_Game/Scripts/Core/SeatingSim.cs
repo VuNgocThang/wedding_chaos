@@ -12,7 +12,8 @@ namespace WeddingChaos.Core
     {
         public const int CouplePenalty = 15, CoupleBonus = -10, ExFight = 30, ExGlare = 10,
                          GrandmaNotStar = 20, GrandmaScold = 20, GossipBonus = -15, PerfectTableBonus = -5,
-                         RivalClash = 20, BffBonus = -8, FamilyBonus = -5, KidCries = 15, CrushBonus = -12, GiftBonus = -5;
+                         RivalClash = 20, BffBonus = -8, FamilyBonus = -5, KidCries = 15, CrushBonus = -12, GiftBonus = -5,
+                         VipSeatTaken = 15, VipImpatient = 15;
 
         struct Placement { public char Color; public int Seat; public int Gen; }
 
@@ -35,6 +36,9 @@ namespace WeddingChaos.Core
         public int Seated { get; private set; }
         public int Total { get; private set; }
         public GameStatus Status { get; private set; } = GameStatus.Playing;
+        /// <summary>Moves the player has made (each seat, pair or bench move counts one). Drives VIP patience.</summary>
+        public int Turn { get; private set; }
+        HashSet<int> angryVips = new HashSet<int>();
 
         Dictionary<int, Placement> placed = new Dictionary<int, Placement>();
         Dictionary<int, Guest> placedGuests = new Dictionary<int, Guest>();
@@ -92,11 +96,12 @@ namespace WeddingChaos.Core
                 if (k == LinkKind.ParentOf && gb.Type != GuestType.Kid) throw new FormatException($"'parent {a} {b}': @{b} must be a kid (suffix k)");
                 LevelDef.Connect(ga, gb, k, tag++);
             }
-            foreach (var (label, seat) in def.Reserves)
+            foreach (var (label, seat, patience) in def.Reserves)
             {
                 if (!labels.TryGetValue(label, out var gr)) throw new FormatException("Unknown label in reserve '" + label + "'");
                 if (seat < 0 || seat >= Table.SeatCount) throw new FormatException("Reserved seat out of range for @" + label);
                 gr.Reserved = seat;
+                gr.Patience = patience;
             }
             foreach (var (color, r1, c1, r2, c2) in def.Ribbons)
             {
@@ -144,6 +149,7 @@ namespace WeddingChaos.Core
             s.Ribbons = Ribbons.ConvertAll(x => x.Clone());
             s.giftIndex = (int[,])giftIndex.Clone();
             s.events = new List<BlockerEvent>();
+            s.angryVips = new HashSet<int>(angryVips);
             return s;
         }
 
@@ -222,19 +228,46 @@ namespace WeddingChaos.Core
             for (int k = 0; k < Table.SeatCount; k++) if (t.Seats[k] == null) yield return k;
         }
 
-        /// <summary>Seats guest g may take now: its reserved seat only, or any free seat nobody else has reserved.</summary>
+        /// <summary>
+        /// Seats guest g may take now. A VIP sits on its name-card seat while it is free; once someone else took it,
+        /// the VIP settles for any free seat. Everybody else may sit anywhere, but taking a VIP's seat costs drama.
+        /// </summary>
         public IEnumerable<int> SeatsFor(Guest g)
         {
             if (!TableOpen(g.Color)) yield break;
             var t = Tables[g.Color];
-            if (g.Reserved >= 0) { if (t.Seats[g.Reserved] == null) yield return g.Reserved; yield break; }
-            for (int k = 0; k < Table.SeatCount; k++) if (t.Seats[k] == null && !ReservedByOther(g, k)) yield return k;
+            if (g.Reserved >= 0 && t.Seats[g.Reserved] == null) { yield return g.Reserved; yield break; }
+            for (int k = 0; k < Table.SeatCount; k++) if (t.Seats[k] == null) yield return k;
         }
 
-        bool ReservedByOther(Guest g, int seat)
+        /// <summary>The still-waiting VIP whose name card is on seat k of g's colour table (null if none).</summary>
+        public Guest VipOfSeat(Guest g, int seat)
         {
-            foreach (var o in AllUnseated()) if (o != g && o.Color == g.Color && o.Reserved == seat) return true;
-            return false;
+            foreach (var o in AllUnseated()) if (o != g && o.Color == g.Color && o.Reserved == seat) return o;
+            return null;
+        }
+
+        /// <summary>Turns left before a waiting VIP gets angry (-1 = no limit or already angry).</summary>
+        public int PatienceLeft(Guest g)
+        {
+            if (g.Patience < 0 || angryVips.Contains(g.Id)) return -1;
+            return Math.Max(0, g.Patience - Turn);
+        }
+
+        public bool IsAngryVip(Guest g) => angryVips.Contains(g.Id);
+
+        /// <summary>One player move is over: advance the turn and let VIPs whose patience ran out get angry (+15% once).</summary>
+        void EndTurn()
+        {
+            Turn++;
+            foreach (var g in AllUnseated())
+            {
+                if (g.Patience < 0 || Turn < g.Patience || angryVips.Contains(g.Id)) continue;
+                angryVips.Add(g.Id);
+                Drama = Math.Max(0, Math.Min(100, Drama + VipImpatient));
+                events.Add(new BlockerEvent { Kind = "vip_angry", Index = g.Id });
+            }
+            UpdateStatus();
         }
 
         /// <summary>A hand-holding pair leaves together once either of them has a free lane (the other follows).</summary>
@@ -274,6 +307,10 @@ namespace WeddingChaos.Core
             var s = t.Seats;
             Guest left = s[Table.Left(k)], right = s[Table.Right(k)];
             Guest Near(Func<Guest, bool> p) => left != null && p(left) ? left : right != null && p(right) ? right : null;
+
+            // somebody else's name card on this chair
+            var vip = VipOfSeat(g, k);
+            if (vip != null) list.Add(new Effect(VipSeatTaken, EffectKeys.VipSeatTaken, otherId: vip.Id));
 
             // traits
             if (g.Type == GuestType.Grandma && k != Table.StarSeat)
@@ -355,7 +392,15 @@ namespace WeddingChaos.Core
             if (!CanSeatFromCrowd(r, c, seat)) throw new InvalidOperationException($"Illegal seat move from {r},{c} to seat {seat}");
             var g = Grid[r, c];
             LeaveCell(r, c, g);
-            return Place(g, seat);
+            return Finish(Place(g, seat));
+        }
+
+        SeatResult Finish(SeatResult res)
+        {
+            EndTurn();
+            res.DramaAfter = Drama;
+            res.StatusAfter = Status;
+            return res;
         }
 
         /// <summary>A hand-holding pair: the guest at r,c takes seat k, the partner seat j (side by side).</summary>
@@ -368,6 +413,8 @@ namespace WeddingChaos.Core
             LeaveCell(pr, pc, p);
             var a = Place(g, k);
             var b = Place(p, j);
+            Finish(b);
+            a.DramaAfter = b.DramaAfter; a.StatusAfter = b.StatusAfter;
             return (a, b);
         }
 
@@ -376,7 +423,7 @@ namespace WeddingChaos.Core
             if (!CanSeatFromBench(i, seat)) throw new InvalidOperationException($"Illegal seat move from bench {i} to seat {seat}");
             var g = Bench[i];
             Bench[i] = null;
-            return Place(g, seat);
+            return Finish(Place(g, seat));
         }
 
         /// <summary>Moves a free crowd guest to the waiting bench. Returns the bench slot.</summary>
@@ -388,7 +435,7 @@ namespace WeddingChaos.Core
             Bench[slot] = g;
             LeaveCell(r, c, g);
             RevealReachable();
-            UpdateStatus();
+            EndTurn();
             return slot;
         }
 
@@ -593,6 +640,11 @@ namespace WeddingChaos.Core
             foreach (var gf in Gifts) sb.Append(gf.Count).Append(',');
             foreach (var rb in Ribbons) sb.Append(rb.Cut ? '1' : '0');
             sb.Append('|').Append(Drama);
+            // VIP patience makes the move count matter (only while some VIP still has patience left)
+            bool clock = false;
+            foreach (var g in AllUnseated()) if (g.Patience >= 0 && !angryVips.Contains(g.Id)) { clock = true; break; }
+            if (clock) sb.Append('|').Append(Turn);
+            foreach (var id in angryVips) sb.Append('a').Append(id);
             return sb.ToString();
         }
     }

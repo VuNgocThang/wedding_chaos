@@ -40,6 +40,8 @@ namespace WeddingChaos.Core
         public string Label;
         /// <summary>Reserved seat index at the guest's colour table (-1 = none). The guest may only sit there; nobody else may.</summary>
         public int Reserved = -1;
+        /// <summary>VIP patience in turns (moves the player makes), -1 = unlimited. Still unseated after that many turns: +15% once.</summary>
+        public int Patience = -1;
         public List<Link> Links = new List<Link>();
 
         public bool Has(LinkKind k) { foreach (var l in Links) if (l.Kind == k) return true; return false; }
@@ -102,6 +104,8 @@ namespace WeddingChaos.Core
         public const string KidCries = "kid_cries";
         public const string CrushHappy = "crush_happy";
         public const string GiftOpened = "gift_opened";
+        public const string VipSeatTaken = "vip_seat_taken";
+        public const string VipImpatient = "vip_impatient";
     }
 
     /// <summary>A colour-locked gift stack in the crowd: blocks its cell until Count guests of its colour leave from a neighbouring cell.</summary>

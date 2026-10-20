@@ -1,40 +1,41 @@
-// gen: tier super, casual win 12%, greedy win 17%, careful win 22%, solver best drama 40
+// gen: tier super, casual win 0%, greedy win 0%, careful win 0%, planner win 20%, solver best drama 52
 name: BOSS · Hai họ đối đầu
 tier: super
 bench: 1
 drama: 65
 grid:
-Yg G@a Y B B@b Bk@c
-$Y1 $G1 # ?R@d B@e Y
-B # B $R3 R@f R@g
-Gk@h ?Y@i # R@j ?B G@k
-R@l R@m B@n B@o ?B R@p
-R@q # B@r Y ?R@s Gu@t
-# Y@u Y@v R@w Rk@x B
-. Ru . Y@y . .
+B@a R@b R@c B@d Y@e G
+$B2 ?G@f # G@g B@h #
+B $B2 Y@i # B $B1
+G@j B@k Rk@l R@m ?Gg Ru@n
+G@o G@p Gk@q B@r # Y
+?R Bk@s B@t Rg R G@u
+B G@v B@w Gu@x # Y
+B . . . . ?G@y
 links:
-ex d a
-parent t h
-ex a k
-ex d f
-parent w x
-parent n c
-couple y i
-rival y u
-ex f w
-ex o n
+couple x v
+ex x y
+bff w r
+couple u j
+ex u o
+rival d w
+couple u p
+parent o q
+parent a s
+parent c l
+couple m b
+ex m n
 couple f g
-couple m q
-ex m p
-rival s j
-hands b e
-hands l m
-hands u v
-reserve d 1
-reserve h 3
-reserve r 1
-reserve y 3
-ribbon Y 0,5 1,5
-ribbon R 0,4 1,4
+couple e i
+couple a h
+hands b c
+hands j o
+couple t k
+reserve n 1 10
+reserve t 1 19
+reserve v 3 17
+reserve x 0 16
 ribbon R 2,0 3,0
-solution: 0,0>2 0,1>0 0,2>0 0,3>0 0,4>2+3 1,3>1 1,5>1 2,5>0 2,4>3 3,5>2 4,5>2 5,5>1 5,4>0 6,4>1 6,3>2 7,3>3 5,3>0 5,2>1 0,5>0 4,2>1 2,0>2 3,4>3 4,3>0 4,4>1 6,1>1+2 6,5>2 7,1>3 3,3>0 2,2>3 4,0>1+2 5,0>3 3,0>3 3,1>3
+ribbon R 0,3 1,3
+ribbon G 2,2 3,2
+solution: 0,3>3 0,1>2+3 0,4>2 0,5>1 1,4>2 2,4>0 3,4>2 3,5>1 4,5>0 3,3>b 3,2>0 0,0>1 4,3>0 3,1>2 5,3>2 5,2>1 6,2>3 6,1>3 6,3>0 2,2>1 4,2>3 3,0>1+2 5,5>0 1,3>3 1,1>2 5,4>0 5,0>3 7,5>0 6,0>0 2,0>2 7,0>3 6,5>3 4,1>1 5,1>1 b0>1

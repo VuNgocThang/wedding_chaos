@@ -1,24 +1,25 @@
-// gen: tier medium, casual win 51%, greedy win 60%, careful win 83%, solver best drama 22
+// gen: tier medium, casual win 23%, greedy win 53%, careful win 57%, planner win 53%, solver best drama 50
 name: Khách không mời
 tier: medium
 bench: 2
 drama: 40
 grid:
-B@a Y R Rg R@b R
-R ?Bg G@c B ?R Ru@d
-# Y@e Bk@f # R ?G@g
-R ?R Y@h G@i # G@j
-R@k . R@l R@m Yg #
+B@a Y R Rg R R
+R ?Bg G@b B ?R Ru@c
+# Y@d Bk@e # R G@f
+R ?R Y@g G@h # G@i
+R@j . R@k R@l Yg #
 . . R . R .
 . . R . # .
 links:
-parent a f
-ex g c
-crush i j
-ex e h
-ex e i
-bff k d
-hands l m
-reserve b 1
-reserve g 1
-solution: 0,1>0 0,3>2 0,0>0 1,1>2 0,2>3 1,3>1 1,0>0 1,2>3 2,2>3 0,4>1 0,5>2 2,1>1 1,4>3 2,4>0 3,1>1 1,5>1 4,0>0 4,2>2+3 5,2>1 4,4>2 3,3>2 3,0>3 6,2>0 5,4>2 2,5>b 3,5>0 3,2>b b0>1 b1>3
+parent a e
+ex f b
+crush h i
+ex d g
+ex d h
+bff j c
+hands k l
+ex h b
+reserve f 2 33
+reserve h 1 30
+solution: 0,5>0 0,2>3 0,0>0 0,4>1 0,3>2 1,0>0 1,4>2 1,3>1 2,4>1 1,5>3 0,1>0 2,5>2 3,5>0 1,1>2 2,1>3 2,2>3 3,1>1 4,0>3 3,0>0 5,2>2 6,2>2 4,2>3+0 3,3>1 5,4>1 4,4>2 3,2>b 1,2>b b0>1 b1>3

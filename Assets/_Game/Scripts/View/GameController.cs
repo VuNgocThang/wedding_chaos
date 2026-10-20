@@ -150,7 +150,7 @@ namespace WeddingChaos.View
             if (world != null) { world.gameObject.SetActive(false); Destroy(world.gameObject); Resources.UnloadUnusedAssets(); }
             views.Clear(); tables.Clear(); tablePos.Clear(); lockedUntil.Clear(); busyTables.Clear(); benchSlots.Clear(); relatedLit.Clear();
             infoTarget = null; freeIds.Clear();
-            giftViews.Clear(); ribbonViews.Clear(); reserveTags.Clear(); handLinks.Clear(); pairChoice.Clear(); selPartner = null;
+            giftViews.Clear(); ribbonViews.Clear(); reserveTags.Clear(); vipClock.Clear(); handLinks.Clear(); pairChoice.Clear(); selPartner = null;
             running = 0; ended = false; egoUsed = false; bouncerMode = false; sel = default; selView = null; pressing = dragging = false;
             boosterCount["bouncer"] = 1; boosterCount["sofa"] = 1; boosterCount["champagne"] = 1;
             hud.HideEnd(); hud.ClearBadges(); hud.ClearEmotes(); hud.ShowInfo(null); camShakeUntil = 0; hud.SetChips(new List<(Vector3, int)>());
@@ -460,7 +460,7 @@ namespace WeddingChaos.View
             switch (level)
             {
                 case 17: return "Hộp quà: cho khách CÙNG MÀU đứng cạnh rời hàng để mở quà (−5% Drama)!";
-                case 22: return "Ghế có thẻ tên: chỉ đúng người đó được ngồi, người khác không vào được.";
+                case 22: return "Ghế có thẻ tên là của khách VIP: người khác ngồi vào thì VIP giận +15%. VIP chờ quá số lượt trên bảng tên cũng giận!";
                 case 25: return "Hai khách nắm tay: đi cùng nhau và cần 2 ghế liền nhau.";
                 case 31: return "Dây ruy băng: chỉ đứt khi một bàn cùng màu được xếp xong.";
                 default: return null;
@@ -558,6 +558,38 @@ namespace WeddingChaos.View
             }
         }
 
+        /// <summary>Someone other than the VIP took a name-card chair: the card goes, the VIP will sit anywhere now.</summary>
+        void ClearReserveTagAt(TableView tv, int seat, Guest sitter)
+        {
+            if (!tv) return;
+            int vipId = -1;
+            foreach (var kv in reserveTags) if (kv.Key != sitter.Id && kv.Value && kv.Value.parent == tv.Anchors[seat]) { vipId = kv.Key; break; }
+            if (vipId < 0) return;
+            var tag = reserveTags[vipId];
+            hud.SetPlateMode(tag, 0);
+            var card = tag.parent.Find("PlaceCard");
+            if (card) Destroy(card.gameObject);
+            reserveTags.Remove(vipId);
+        }
+
+        readonly Dictionary<int, int> vipClock = new Dictionary<int, int>();
+
+        /// <summary>VIP name plates (and their chair tags) count down the turns left before the VIP gets angry.</summary>
+        void RefreshVipClocks()
+        {
+            foreach (var g in sim.AllUnseated())
+            {
+                if (g.Patience < 0 || !views.TryGetValue(g.Id, out var v) || !v) continue;
+                int left = sim.PatienceLeft(g);
+                if (vipClock.TryGetValue(g.Id, out var was) && was == left) continue;
+                vipClock[g.Id] = left;
+                string text = left < 0 ? v.DisplayName + " · giận!" : $"{v.DisplayName} · {left} lượt";
+                hud.SetPlateText(v.BadgeAnchor, text);
+                if (reserveTags.TryGetValue(g.Id, out var tag) && tag) hud.SetPlateText(tag, text);
+                if (left >= 0 && left <= 2) { v.Emote("exclaim", 1.2f); if (left > 0) v.Play(GuestView.Act.CheckWatch, 1.2f); }
+            }
+        }
+
         /// <summary>Plays what the last move did to blockers: gift counters, gifts opening, ribbons being cut.</summary>
         void HandleBlockerEvents(bool pushDrama)
         {
@@ -584,6 +616,17 @@ namespace WeddingChaos.View
                             hud.Popup(gv.root.position + Vector3.up * 1.2f, "Quà mừng cưới! −5%", true, 0.15f);
                             coins += 10; hud.SetCoins(coins);
                             if (bride) bride.Play(GuestView.Act.Cheer, 1f, null, "sparkle");
+                        }
+                        if (pushDrama) PushDrama();
+                        break;
+                    case "vip_angry":
+                        if (views.TryGetValue(e.Index, out var vipView) && vipView)
+                        {
+                            vipView.Play(GuestView.Act.Furious, 2.2f, null, "anger");
+                            vipView.CurrentMood = GuestView.Mood.Furious;
+                            vipView.Shake();
+                            hud.Popup(vipView.transform.position + Vector3.up * 1.6f, "VIP chờ lâu, nổi giận! +15%", false);
+                            Sfx.Play("drama_up");
                         }
                         if (pushDrama) PushDrama();
                         break;
@@ -736,6 +779,7 @@ namespace WeddingChaos.View
         /// plus the selected guest and their relations. Blocked guests keep a small icon dot; seated guests none.</summary>
         void RefreshPlates()
         {
+            RefreshVipClocks();
             foreach (var v in views.Values)
             {
                 if (!v) continue;
@@ -1023,8 +1067,14 @@ namespace WeddingChaos.View
             }
             if (g.Reserved >= 0)
             {
-                wishes.Add(new Hud.Wish { Text = "Chỉ ngồi ghế có thẻ tên", State = sim.TryGetPlacement(g.Id, out _, out _, out _) ? 1 : 0 });
-                if (g.Links.Count == 0 && g.Type == GuestType.Normal) role = "Đặt chỗ trước";
+                bool seatedNow = sim.TryGetPlacement(g.Id, out _, out int mySeat, out _);
+                wishes.Add(new Hud.Wish { Text = "Ghế có tên tôi là của tôi", Delta = SeatingSim.VipSeatTaken, State = seatedNow ? (mySeat == g.Reserved ? 1 : -1) : 0 });
+                if (g.Patience >= 0)
+                {
+                    int left = sim.PatienceLeft(g);
+                    wishes.Add(new Hud.Wish { Text = seatedNow ? "Được vào chỗ kịp lúc" : left < 0 ? "Chờ quá lâu rồi!" : $"Chờ tối đa {left} lượt nữa", Delta = SeatingSim.VipImpatient, State = sim.IsAngryVip(g) ? -1 : seatedNow ? 1 : 0 });
+                }
+                if (g.Links.Count == 0 && g.Type == GuestType.Normal) role = "Khách VIP";
             }
             foreach (var l in g.Links)
             {
@@ -1161,6 +1211,7 @@ namespace WeddingChaos.View
 
             var res = src.Bench ? sim.SeatFromBench(src.I, k) : sim.SeatFromCrowd(src.R, src.C, k);
             var tv = tables[g.Color];
+            ClearReserveTagAt(tv, k, g);
             tv.Seated[k] = gv;
             if (res.TableCompleted) busyTables.Add(g.Color);
             if (!src.Bench) CrowdWatch(gv);
@@ -1187,6 +1238,7 @@ namespace WeddingChaos.View
             var (r1, r2) = sim.SeatPairFromCrowd(src.R, src.C, k, j);
             var tv = tables[g.Color];
             tv.Seated[k] = gv; tv.Seated[j] = pv;
+            ClearReserveTagAt(tv, k, g); ClearReserveTagAt(tv, j, mate);
             if (r1.TableCompleted || r2.TableCompleted) busyTables.Add(g.Color);
             RemoveHandLink(gv);
             CrowdWatch(gv);
@@ -1520,6 +1572,11 @@ namespace WeddingChaos.View
                             yield return new WaitForSeconds(2f);
                         }
                         break;
+                    case EffectKeys.VipSeatTaken:
+                        gv.Play(GuestView.Act.Shrug, 1.4f, oLook, "sweat");
+                        if (o) { o.Play(GuestView.Act.Furious, 2f, gv.EmoteAnchor, "anger"); o.CurrentMood = GuestView.Mood.Furious; }
+                        yield return new WaitForSeconds(1.4f);
+                        break;
                     case EffectKeys.GrandmaNotStar:
                         gv.Play(GuestView.Act.Furious, 2f, tv.Anchors[Table.StarSeat], "anger");
                         gv.CurrentMood = GuestView.Mood.Grumpy;
@@ -1609,6 +1666,8 @@ namespace WeddingChaos.View
                 case EffectKeys.FamilyTogether: return "Bé ngồi cạnh bố mẹ −5%";
                 case EffectKeys.KidCries: return "Bé xa bố mẹ, khóc ré! +15%";
                 case EffectKeys.CrushHappy: return "Được ngồi cạnh crush −12%";
+                case EffectKeys.VipSeatTaken: return "Ngồi nhầm ghế VIP! +15%";
+                case EffectKeys.VipImpatient: return "VIP chờ lâu, nổi giận! +15%";
                 default: return e.ToString();
             }
         }

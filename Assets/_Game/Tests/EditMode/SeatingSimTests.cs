@@ -227,15 +227,61 @@ namespace WeddingChaos.Tests
             Assert.AreEqual(30 + SeatingSim.GiftBonus, s.Drama);
         }
 
-        [Test] public void ReservedSeat_OnlyItsOwnerMaySitThere()
+        [Test] public void VipSeat_IsATrap_OthersMaySitThereButItCostsDrama()
         {
-            var s = MakeLinked(1, 0, new[] { "R@a R R R" }, "reserve a 2");
-            var a = s.Grid[0, 0]; var b = s.Grid[0, 1];
-            CollectionAssert.AreEqual(new[] { 2 }, s.SeatsFor(a).ToArray());
-            CollectionAssert.DoesNotContain(s.SeatsFor(b).ToArray(), 2);
-            Assert.IsFalse(s.CanSeatFromCrowd(0, 0, 0));
+            var s = MakeLinked(1, 0, new[] { "R R@a R R" }, "reserve a 2");
+            var a = s.Grid[0, 1]; var b = s.Grid[0, 0];
+            CollectionAssert.AreEqual(new[] { 2 }, s.SeatsFor(a).ToArray());          // the VIP heads for its name card
+            CollectionAssert.Contains(s.SeatsFor(b).ToArray(), 2);                     // anyone else may take it...
+            var fx = s.PreviewEffects(b, 2);
+            Assert.AreEqual(SeatingSim.VipSeatTaken, fx.Sum(e => e.Delta));             // ...for +15
+            Assert.AreEqual(a.Id, fx[0].OtherId);
             s.SeatFromCrowd(0, 0, 2);
-            Assert.IsTrue(s.SeatsFor(s.Grid[0, 1]).Count() == 3);
+            Assert.AreEqual(SeatingSim.VipSeatTaken, s.Drama);
+            CollectionAssert.AreEquivalent(new[] { 0, 1, 3 }, s.SeatsFor(a).ToArray()); // seat lost: the VIP sits anywhere
+            Assert.AreEqual(0, s.PreviewEffects(a, 0).Count);
+        }
+
+        [Test] public void VipSeat_NoPenaltyOnceTheVipIsSeated()
+        {
+            var s = MakeLinked(1, 0, new[] { "R@a R R R", "R R R R" }, "reserve a 1");
+            s.SeatFromCrowd(0, 0, 1);
+            Assert.AreEqual(0, s.Drama);
+            for (int c = 1; c < 4; c++) s.SeatFromCrowd(0, c, c == 1 ? 0 : c);   // first table fills
+            Assert.AreEqual(2, s.Tables['R'].Generation);
+            Assert.AreEqual(0, s.PreviewEffects(s.Grid[1, 0], 1).Count);          // the VIP sat already: seat 1 is free for all
+        }
+
+        [Test] public void VipPatience_RunsOutAfterItsTurns_OnceOnly()
+        {
+            var s = MakeLinked(2, 0, new[] { "B B B B", "R R R R@a" }, "reserve a 0 3");
+            Assert.AreEqual(3, s.PatienceLeft(s.Grid[1, 3]));
+            s.SeatFromCrowd(0, 0, 0);
+            s.MoveToBench(0, 1);                                   // bench moves count as turns too
+            Assert.AreEqual(1, s.PatienceLeft(s.Grid[1, 3]));
+            Assert.AreEqual(0, s.Drama);
+            s.SeatFromCrowd(0, 2, 1);                              // turn 3: the VIP is still waiting
+            Assert.AreEqual(SeatingSim.VipImpatient, s.Drama);
+            Assert.IsTrue(s.TakeEvents().Any(e => e.Kind == "vip_angry"));
+            s.SeatFromCrowd(0, 3, 2);
+            Assert.AreEqual(SeatingSim.VipImpatient, s.Drama);     // only once
+            Assert.AreEqual(-1, s.PatienceLeft(s.Grid[1, 3]));
+        }
+
+        [Test] public void VipPatience_NoPenaltyWhenSeatedInTime()
+        {
+            var s = MakeLinked(1, 0, new[] { "R R@a R R" }, "reserve a 3 2");
+            s.SeatFromCrowd(0, 0, 0);
+            s.SeatFromCrowd(0, 1, 3);                              // seated on turn 2
+            s.SeatFromCrowd(0, 2, 1);
+            Assert.AreEqual(0, s.Drama);
+        }
+
+        [Test] public void ReserveLine_ParsesOptionalPatience()
+        {
+            var d = LevelDef.Parse("name: L\nbench: 1\ndrama: 0\ngrid:\nR@a R@b R R\nlinks:\nreserve a 1 9\nreserve b 2\n");
+            Assert.AreEqual(("a", 1, 9), d.Reserves[0]);
+            Assert.AreEqual(("b", 2, -1), d.Reserves[1]);
         }
 
         [Test] public void HandHoldingPair_LeavesTogether_AndSitsSideBySide()
