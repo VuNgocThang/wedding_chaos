@@ -1,8 +1,10 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using WeddingChaos.Core;
+using Random = UnityEngine.Random;
 
 namespace WeddingChaos.View
 {
@@ -67,6 +69,11 @@ namespace WeddingChaos.View
         static readonly string[] AuntieNames = { "Cô Gina", "Cô Pam", "Cô Sue", "Cô Liz" };
         static readonly string[] KidNames = { "Bé Bin", "Bé Na", "Bé Tí", "Bé Su", "Bé Bo", "Bé Mít" };
 
+        private void Awake()
+        {
+            Setup();
+        }
+
         void Start()
         {
             SetupCameraAndLight();
@@ -78,6 +85,10 @@ namespace WeddingChaos.View
             GuestView.EmoteSink = hud.Emote;
             hud.SetCoins(coins);
             LoadLevel(levelIndex);
+        }
+        void Setup()
+        {
+            Application.targetFrameRate = 60;
         }
 
         // ---------- setup ----------
