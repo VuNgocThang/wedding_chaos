@@ -1,0 +1,18 @@
+// gen: tier easy, casual win 85%, greedy win 97%, careful win 98%, solver best drama 0
+name: Pháo hoa
+tier: easy
+bench: 3
+drama: 10
+grid:
+R Y@a Y@b Y@c B G
+?Bs Y@d R R B ?G
+G # G G@e # Bs
+R ?R R R Y@f Y@g
+Y G G@h Yg . G
+# . R . # .
+links:
+couple b c
+crush e h
+bff a d
+hands f g
+solution: 0,3>3 0,2>2 1,2>2 0,5>2 0,4>3 0,0>0 1,4>1 1,3>1 2,3>0 0,1>1 1,1>0 1,0>0 3,3>3 3,2>0 4,2>3 3,1>2 3,4>3+0 1,5>1 2,0>1 3,0>1 4,1>3 2,2>0 4,3>2 2,5>2 4,0>1 5,2>3 4,5>2

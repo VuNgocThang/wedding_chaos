@@ -1,0 +1,14 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Ai ngồi cạnh ai?
+tier: easy
+bench: 4
+drama: 0
+grid:
+G R Ru G R R
+$G1 R B G@a B ?R
+. . B . G@b #
+. . R B . .
+. . . R . .
+links:
+bff b a
+solution: 0,0>0 0,1>0 0,2>1 0,3>1 0,4>2 0,5>3 1,1>0 1,2>0 1,3>2 2,4>3 1,4>1 1,5>1 2,2>2 3,2>2 3,3>3 4,3>3

@@ -1,0 +1,31 @@
+// gen: tier hard, casual win 30%, greedy win 43%, careful win 65%, solver best drama 35
+name: Tung hoa cưới
+tier: hard
+bench: 1
+drama: 55
+grid:
+G R R Bs R R@a
+B@b $B2 B@c # B $R2
+Y $Y1 G Bk@d Gk@e ?R@f
+B@g R@h R ?G@i # R
+# # Y ?R@j G@k Y
+G G@l Ru . Gu .
+. # . B@m ?R Bs@n
+. . . . Y@o R@p
+links:
+couple c g
+ex c b
+rival o f
+rival p o
+rival i l
+parent k e
+parent m d
+ex k g
+ex k l
+couple h a
+ex h j
+rival n g
+reserve h 0
+reserve i 3
+reserve j 2
+solution: 0,1>3 0,3>0 0,4>1 1,4>2 2,4>1 2,3>3 0,0>2 3,3>3 4,3>2 4,4>0 4,2>3 4,5>0 6,5>1 5,4>0 2,2>3 1,0>0 2,0>2 3,0>1 1,2>2 3,5>b 3,1>0 0,2>1 5,2>0 5,1>1 6,4>3 7,5>2 3,2>3 2,5>1 5,0>2 7,4>1 b0>0 6,3>b 0,5>2 b0>3

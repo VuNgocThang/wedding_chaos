@@ -1,0 +1,17 @@
+// gen: tier hard, casual win 47%, greedy win 63%, careful win 75%, solver best drama 0
+name: Bàn tiệc rối ren
+tier: hard
+bench: 2
+drama: 45
+grid:
+R R B B B B
+B@a R@b B@c B # B
+Bu R@d B@e B@f R@g R@h
+R@i . R@j . # Bg
+links:
+couple j b
+couple e c
+ex h d
+ex g i
+couple a f
+solution: 0,2>2 1,2>0 2,2>3 0,0>0 2,1>3 0,1>1 3,0>2 0,5>1 2,0>0 1,3>3 3,2>2 1,1>1 2,3>2 1,0>1 1,5>0 0,3>1 2,5>0 2,4>3 0,4>3 3,5>2

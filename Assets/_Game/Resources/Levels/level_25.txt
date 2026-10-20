@@ -1,0 +1,15 @@
+// gen: tier easy, casual win 92%, greedy win 95%, careful win 98%, solver best drama 0
+name: Lời tỏ tình
+tier: easy
+bench: 4
+drama: 5
+grid:
+B Gs B Gs B B
+?B R B ?R@a # B
+B Gs B@b B@c B R@d
+Gs B . R . .
+. . # . . .
+links:
+crush d a
+hands b c
+solution: 0,0>0 0,1>0 0,3>1 0,2>1 0,4>2 0,5>3 1,0>0 1,1>0 2,1>2 1,2>1 1,3>1 1,5>2 2,5>2 2,0>3 3,0>3 2,2>0+1 2,4>2 3,1>3 3,3>3

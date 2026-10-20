@@ -1,0 +1,14 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Bạn thân từ bé
+tier: easy
+bench: 4
+drama: 0
+grid:
+G B@a B@b B B B
+B R G B@c R R
+B@d . . . ?R .
+. G # G . .
+links:
+bff a d
+bff b c
+solution: 0,0>0 0,1>0 0,2>1 0,3>2 1,3>3 0,4>0 0,5>1 1,0>2 1,1>0 1,2>1 1,4>1 1,5>2 2,0>3 2,4>3 3,1>2 3,3>3

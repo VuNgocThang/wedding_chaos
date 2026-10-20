@@ -1,0 +1,29 @@
+// gen: tier hard, casual win 39%, greedy win 62%, careful win 95%, solver best drama 15
+name: Bố cô dâu phát biểu
+tier: hard
+bench: 1
+drama: 50
+grid:
+R@a B@b G@c G@d G@e Y@f
+Y G@g Yk@h ?G R@i #
+$Y1 $G2 R@j R@k G ?R@l
+G@m G Gk@n G@o B ?G@p
+?B # # Y@q R Ru@r
+# . . . B@s G
+. . R . . .
+links:
+couple m c
+rival m p
+crush q f
+ex a k
+ex i j
+parent f h
+rival l k
+parent p n
+ex i r
+couple e o
+ex e g
+couple b s
+reserve d 0
+reserve j 0
+solution: 0,1>3 0,4>1 1,4>2 1,3>2 1,2>0 0,5>1 0,0>1 2,4>3 2,5>3 1,0>2 3,4>0 0,3>0 3,0>3 0,2>2 1,1>0 3,1>1 3,5>0 3,2>1 4,0>1 2,2>b b0>0 2,3>3 4,4>1 5,4>2 6,2>2 4,3>3 5,5>3 4,5>0 3,3>b b0>2

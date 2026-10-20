@@ -1,0 +1,23 @@
+// gen: tier hard, casual win 37%, greedy win 68%, careful win 98%, solver best drama 25
+name: Nhạc nổi lên
+tier: hard
+bench: 2
+drama: 50
+grid:
+G G@a G R@b R@c R@d
+R@e ?R@f R@g R@h R@i B@j
+# R@k G G B@l Bg
+?R@m G # G@n R G
+. . R # . ?B@o
+links:
+ex f i
+ex n a
+couple j o
+rival j l
+rival h e
+ex g k
+rival k e
+couple b m
+rival b c
+rival h d
+solution: 0,1>1 0,2>3 0,4>0 1,1>1 2,1>2 3,1>0 4,2>3 1,4>1 3,0>0 0,3>3 1,5>0 1,3>2 2,5>2 1,2>0 1,0>3 0,0>2 2,2>0 0,5>2 3,5>2 4,5>3 2,3>1 3,4>1 3,3>3 2,4>b b0>1

@@ -1,0 +1,40 @@
+// gen: tier super, casual win 3%, greedy win 3%, careful win 12%, solver best drama 50
+name: BOSS · Đám cưới thế kỷ
+tier: super
+bench: 1
+drama: 70
+grid:
+Y@a Rk@b G B@c G Y
+$Y1 $R1 ?G@d Y@e # $Y1
+G ?B@f G Gg Rg R@g
+# Yk@h Ru@i Ru@j Y@k Y@l
+Y@m ?R@n B ?Y@o R@p G
+Y@q G@r # Ru@s G@t Yk@u
+. ?G . ?G@v G@w B@x
+# . . Yk@y # Y@z
+links:
+rival o g
+ex z o
+ex x f
+parent z y
+ex p g
+parent i b
+couple f c
+ex d t
+parent e u
+couple k m
+ex k q
+parent l h
+couple p n
+couple n s
+hands k l
+hands i j
+hands t w
+reserve a 1
+reserve g 0
+reserve r 2
+reserve v 3
+ribbon G 2,1 3,1
+ribbon G 1,3 2,3
+ribbon G 1,2 2,2
+solution: 0,5>3 0,3>0 0,1>3 2,1>1 2,2>1 3,2>2+1 0,0>1 2,5>0 3,1>2 2,4>2 4,3>0 1,3>3 1,2>0 5,3>0 4,1>1 4,0>2 4,2>2 6,3>3 5,0>1 5,1>2 5,4>0+3 5,5>0 0,4>1 7,3>0 2,3>2 2,0>0 0,2>2 6,1>1 4,5>3 4,4>b 6,5>3 7,5>1 b0>3 3,4>2+3

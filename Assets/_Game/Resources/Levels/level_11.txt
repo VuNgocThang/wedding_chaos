@@ -1,0 +1,13 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Khách bí ẩn
+tier: easy
+bench: 4
+drama: 0
+grid:
+B B B R@a Gs B
+B ?B R Gs R B
+. # G . R@b B
+G . . . . .
+links:
+couple b a
+solution: 0,0>0 0,1>1 0,2>2 0,3>0 0,4>0 1,3>1 2,4>1 0,5>3 1,0>0 1,1>1 1,2>2 1,4>3 1,5>2 2,2>2 2,5>3 3,0>3

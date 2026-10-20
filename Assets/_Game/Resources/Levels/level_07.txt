@@ -1,0 +1,11 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Người yêu cũ
+tier: easy
+bench: 4
+drama: 0
+grid:
+R B R R B R
+R@a R@b B R R B
+links:
+ex a b
+solution: 0,2>2 0,1>2 0,4>3 1,4>3 1,1>1 0,3>0 1,2>1 1,3>3 0,0>2 1,5>0 0,5>0 1,0>1

@@ -1,0 +1,19 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Tiệc cưới bãi biển
+tier: easy
+bench: 3
+drama: 10
+grid:
+G G Gk@a G Y Gs@b
+Y G R ?R R ?B
+R B B@c G G Gs
+Ys R G G B@d Ys
+# R R ?R . G@e
+. . . . . #
+. . # . # .
+links:
+couple c d
+parent e a
+rival b e
+ribbon G 2,3 3,3
+solution: 0,5>0 1,5>3 2,5>1 0,1>3 1,4>1 0,0>2 1,0>0 0,4>1 3,5>3 0,2>0 4,5>3 4,1>3 3,4>0 4,3>2 2,4>2 2,3>1 2,2>1 1,1>3 4,2>0 3,1>1 3,0>2 3,2>0 2,0>2 3,3>1 1,3>0 1,2>3 2,1>2 0,3>2

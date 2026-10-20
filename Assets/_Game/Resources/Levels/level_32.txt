@@ -1,0 +1,18 @@
+// gen: tier easy, casual win 100%, greedy win 100%, careful win 100%, solver best drama 0
+name: Bàn khách VIP
+tier: easy
+bench: 3
+drama: 10
+grid:
+B@a G G R Y B
+Y@b R@c $G2 G ?G B@d
+Yk@e G G . B G
+. R@f G # G ?G
+Y G G . Rk@g .
+# . # . . .
+links:
+crush a d
+parent c g
+crush c f
+parent b e
+solution: 0,1>1 0,0>1 0,3>3 0,2>2 0,5>3 1,5>2 1,0>0 2,0>3 2,5>0 1,1>1 3,1>0 0,4>1 1,3>3 4,1>1 2,4>0 2,2>2 3,4>3 4,4>2 1,4>0 2,1>0 4,2>3 3,5>1 3,2>2 4,0>2

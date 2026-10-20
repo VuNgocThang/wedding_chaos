@@ -1,0 +1,19 @@
+// gen: tier easy, casual win 92%, greedy win 92%, careful win 98%, solver best drama 0
+name: Bữa tối dưới nến
+tier: easy
+bench: 3
+drama: 10
+grid:
+Y B B@a Rs B@b B@c
+?G Y # B@d R #
+B R B Y Rs ?B
+G B@e Y G G Bk@f
+. B@g # . . .
+. . . . B .
+links:
+bff e d
+couple b c
+rival b a
+parent c f
+hands e g
+solution: 0,4>3 0,5>2 1,4>1 0,3>2 2,4>3 0,0>3 0,1>0 1,0>2 3,4>1 3,5>1 3,1>3+2 1,3>0 3,3>0 2,3>0 3,2>2 5,4>1 2,5>1 1,1>1 0,2>0 2,0>3 2,1>0 3,0>3 2,2>2

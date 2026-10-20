@@ -1,0 +1,18 @@
+// gen: tier hard, casual win 49%, greedy win 72%, careful win 98%, solver best drama 0
+name: Tiệc bắt đầu nóng
+tier: hard
+bench: 2
+drama: 45
+grid:
+R Bu R@a B@b B R@c
+B R@d B@e Bg B B@f
+# B@g R@h B B@i R
+. B@j R . # .
+. . . . . R
+links:
+couple b i
+couple a d
+couple g e
+couple j f
+couple h c
+solution: 0,4>2 0,2>0 0,1>3 1,1>1 1,0>1 1,4>0 2,1>2 1,2>1 3,1>3 1,5>0 1,3>2 0,5>2 2,2>3 0,3>1 2,4>0 4,5>3 3,2>0 0,0>2 2,3>3 2,5>1

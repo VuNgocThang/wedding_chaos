@@ -1,0 +1,26 @@
+// gen: tier super, casual win 13%, greedy win 27%, careful win 85%, solver best drama 20
+name: BOSS · Đêm tiệc hỗn loạn
+tier: super
+bench: 1
+drama: 60
+grid:
+B@a G@b R@c G@d R B@e
+G@f $G2 R R G ?R
+$G1 # # G@g # G@h
+R ?Bg Ru@i R # G@j
+?B@k R@l G@m G R@n R
+G@o R@p . ?G@q G@r .
+links:
+ex l c
+ex e a
+rival n p
+couple f q
+rival f r
+couple b m
+ex b o
+rival d g
+couple e k
+couple n i
+rival q h
+rival h j
+solution: 0,0>1 1,0>0 0,3>2 3,0>3 1,3>2 4,0>0 5,0>3 0,2>1 5,1>0 5,3>1 1,4>1 4,3>3 0,1>2 3,1>2 4,1>1 1,5>2 2,5>0 3,5>3 1,2>0 2,3>0 0,4>3 4,4>2 3,2>3 5,4>2 4,5>1 0,5>3 3,3>0 4,2>b b0>1

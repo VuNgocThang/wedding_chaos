@@ -1,0 +1,32 @@
+// gen: tier hard, casual win 23%, greedy win 43%, careful win 28%, solver best drama 45
+name: Hỗn loạn tột độ
+tier: hard
+bench: 1
+drama: 55
+grid:
+R@a R Rk@b G@c R Y@d
+B@e ?R $R2 $G2 G@f Y
+# G@g Y # Y $Y2
+Y ?Y@h Y Ru@i # R@j
+Yk@k Yu Y@l Y@m G@n ?R
+# ?R Y@o B@p ?R .
+Rk@q # . . Bu@r Bg
+R . . . . .
+links:
+parent a b
+couple r e
+ex r p
+bff c f
+couple c g
+bff g f
+parent i q
+ex g n
+couple o d
+rival o h
+couple i j
+couple m l
+parent l k
+ribbon Y 2,2 3,2
+ribbon B 1,1 2,1
+ribbon B 0,0 1,0
+solution: 0,3>3 0,5>3 0,4>3 1,4>1 1,5>2 2,4>1 0,2>1 0,0>2 0,1>0 3,5>1 4,5>3 5,4>0 6,4>0 5,2>0 1,1>2 1,0>3 4,4>2 2,2>3 2,1>0 7,0>2 3,2>0 5,1>1 4,1>1 6,0>3 3,1>2 4,2>2 4,3>1 4,0>3 6,5>2 3,0>0 5,3>b 3,3>0 b0>1

@@ -1,0 +1,30 @@
+// gen: tier hard, casual win 29%, greedy win 22%, careful win 43%, solver best drama 25
+name: Mưa lời đồn
+tier: hard
+bench: 1
+drama: 55
+grid:
+B@a Y@b B Ru R Bk@c
+B R ?Yg # G@d R
+Gu@e Bg Ru ?R ?B@f R
+# R # G@g # B
+Y@h Y@i Gk@j R@k R@l R
+. ?R R@m R@n . ?R
+. . . Bk@o # Rg
+links:
+couple b i
+ex d e
+couple b h
+couple e g
+couple n l
+parent f o
+crush n k
+parent g j
+parent a c
+hands h i
+hands m n
+hands k l
+ribbon R 2,5 3,5
+ribbon G 1,0 2,0
+ribbon B 1,4 2,4
+solution: 0,4>1 0,3>0 0,5>3 0,0>0 1,4>3 1,0>1 1,1>2 0,1>1 0,2>2 2,1>2 2,4>0 2,2>3 3,1>3 2,5>1 3,5>3 4,5>0 1,5>2 5,5>0 6,5>2 2,3>3 3,3>2 1,2>2 2,0>1 4,0>0+3 6,3>1 5,1>1 4,3>2+1 5,2>3+0 4,2>b b0>0

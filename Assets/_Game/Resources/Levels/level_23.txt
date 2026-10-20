@@ -1,0 +1,23 @@
+// gen: tier medium, casual win 71%, greedy win 80%, careful win 93%, solver best drama 30
+name: Bàn trẻ con
+tier: medium
+bench: 2
+drama: 35
+grid:
+G R@a G G@b G G@c
+G@d G G Ru@e G B@f
+G # Gg $G2 ?B R@g
+G ?Bk@h G G@i G #
+B@j # . . Gk@k .
+. . . . . ?R@l
+links:
+bff l e
+couple i b
+ex i c
+rival j f
+parent f h
+parent d k
+ex g a
+reserve a 3
+reserve f 1
+solution: 0,4>1 0,2>3 1,4>0 0,5>2 1,3>0 0,1>3 2,4>0 1,5>1 3,4>2 3,3>3 0,3>0 5,5>2 0,0>1 1,0>3 4,4>2 1,2>0 2,0>1 3,0>3 3,1>2 2,2>2 3,2>0 1,1>1 2,5>b 4,0>b b0>1 b1>3
