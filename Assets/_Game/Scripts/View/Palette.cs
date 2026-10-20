@@ -49,13 +49,32 @@ namespace WeddingChaos.View
         public static Color Hex(string h) { ColorUtility.TryParseHtmlString(h, out var c); return c; }
 
         static readonly Dictionary<Color, Material> cache = new Dictionary<Color, Material>();
-        static Shader lit;
+        static Material template;
+
+        /// <summary>
+        /// Base material loaded from Resources so the URP Lit shader is shipped in player builds.
+        /// Shader.Find alone works in the Editor but returns null in a build, because a shader only
+        /// referenced from code is stripped.
+        /// </summary>
+        static Material Template()
+        {
+            if (template != null) return template;
+            template = Resources.Load<Material>("Materials/ClayLit");
+            if (template == null)
+            {
+                var sh = Shader.Find("Universal Render Pipeline/Lit");
+                if (sh == null) sh = Shader.Find("Universal Render Pipeline/Simple Lit");
+                if (sh == null) sh = Shader.Find("Standard");
+                if (sh == null) Debug.LogError("[WeddingChaos] No lit shader found; add Resources/Materials/ClayLit.mat");
+                template = new Material(sh);
+            }
+            return template;
+        }
 
         public static Material Mat(Color c)
         {
             if (cache.TryGetValue(c, out var m) && m != null) return m;
-            if (lit == null) lit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            m = new Material(lit) { color = c };
+            m = new Material(Template()) { color = c };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.12f);
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", 0.12f);

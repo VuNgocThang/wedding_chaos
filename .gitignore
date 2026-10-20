@@ -63,3 +63,6 @@ Packages/com.merry-yellow.code-assist.meta
 
 .claude/
 CLAUDE.md
+
+# Unity build temp
+.utmp/
