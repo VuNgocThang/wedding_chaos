@@ -291,6 +291,13 @@ namespace WeddingChaos.View
                     P.Fill(p => Seg(p, new Vector2(0.0f, -0.5f), new Vector2(0.0f, 0.7f)) - 0.075f, C("#8E5BD6"));
                     P.Fill(p => Seg(p, new Vector2(0.0f, 0.7f), new Vector2(0.45f, 0.35f)) - 0.1f, C("#8E5BD6"));
                     break;
+                case "pointer":    // tutorial arrow pointing down at the thing to tap
+                    {
+                        var arrow = new[] { new Vector2(-0.3f, 0.95f), new Vector2(0.3f, 0.95f), new Vector2(0.3f, 0.1f), new Vector2(0.62f, 0.1f), new Vector2(0f, -0.85f), new Vector2(-0.62f, 0.1f), new Vector2(-0.3f, 0.1f) };
+                        P.Fill(p => Poly(p, arrow), Color.white);
+                        P.Stroke(p => Poly(p, arrow), 0.07f, C("#3A2731"));
+                    }
+                    break;
                 case "sparkle":
                     P.Fill(p => Poly(p, Star(4, 0.92f, 0.26f, new Vector2(-0.12f, -0.08f))), C("#F6B93B"));
                     P.Fill(p => Poly(p, Star(4, 0.36f, 0.11f, new Vector2(0.6f, 0.58f))), C("#FFD36E"));

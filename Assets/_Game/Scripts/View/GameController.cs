@@ -179,8 +179,110 @@ namespace WeddingChaos.View
             Sfx.Play("level_start");
             Sfx.SetDrama(sim.Drama);
             Sfx.SetMusicLevel(0.32f);
-            if (tip != null) hud.Toast(tip, 6f);
-            else hud.Toast(sim.Tier == "super" ? "Level SIÊU KHÓ! Tính trước từng chỗ ngồi." : sim.Tier == "hard" ? "Level KHÓ: để ý các mối quan hệ!" : "Kéo khách có vòng vàng vào ghế cùng màu thiệp", 4f);
+            StartIntro(index, tip);
+        }
+
+        // ---------- onboarding ----------
+        // Level 1 walks the player through one move with an arrow (tap a guest -> tap a lit seat), every level
+        // that unlocks a rule opens with a short card saying what it costs, and the first table / first drama rise
+        // get one line of explanation. The goal (seat everybody, keep Drama under 100%) is stated on every level.
+
+        int tutStep;                 // level 1: 0 off, 1 tap a guest, 2 tap a seat, 3 done-ish, 4 waiting for first table
+        int introShownFor = -1;
+        bool explainedDrama, explainedTable;
+        Transform tutBestSeat;
+
+        static (string title, string body)? RuleIntro(int level)
+        {
+            const string G = "<color=#2F9E6E>", B = "<color=#D63A3A>", E = "</color>";
+            switch (level)
+            {
+                case 1: return ("Cách chơi", "• Chạm <b>một khách có vòng vàng</b> (khách đi được ngay).\n• Chạm <b>một ghế đang sáng</b> ở bàn cùng màu để mời khách ngồi.\n• Mời <b>hết khách</b> vào bàn là <b>thắng</b>.\n• Xếp sai người cạnh nhau làm <b>Drama</b> tăng. Drama <b>100%</b> là <b>thua</b>!");
+                case 2: return ("Mới: Cặp đôi", $"Cặp đôi muốn ngồi <b>sát cạnh nhau</b>: {G}−10%{E} Drama.\nBị tách ra (khác bàn, hoặc không ngồi sát): {B}+15%{E}.\n\nSố trên ghế cho biết trước Drama sẽ đổi bao nhiêu. Ghế có <b>★</b> là lựa chọn tốt nhất.");
+                case 4: return ("Mới: Bà nội VIP", $"Bà nội phải ngồi <b>ghế ngôi sao ★</b> của bàn.\nNgồi ghế khác: {B}+20%{E}.");
+                case 5: return ("Mới: Ông chú say", $"Ông chú ngồi <b>sát bà nội</b> là bị mắng: {B}+20%{E}.\nCho hai người ngồi xa nhau hoặc khác bàn.");
+                case 7: return ("Mới: Người yêu cũ", $"Ngồi <b>sát nhau</b>: ném bánh {B}+30%{E}.\nNgồi <b>đối diện</b>: liếc nhau {B}+10%{E}.\nKhác bàn: không sao.");
+                case 8: return ("Mới: Hội bà tám", $"Hai bà tám ngồi <b>sát nhau</b> mải buôn chuyện: {G}−15%{E}.");
+                case 11: return ("Mới: Khách bí ẩn", "Khách trùm áo choàng <b>?</b> chỉ lộ màu thiệp khi có lối đi ra.\nMở đường cho họ để biết nên xếp vào đâu.");
+                case 12: return ("Mới: Bạn thân", $"Bạn thân ngồi <b>cùng bàn</b>: {G}−8%{E}.");
+                case 14: return ("Mới: Kình địch", $"Kình địch ngồi <b>cùng bàn</b> (dù không sát): {B}+20%{E}.\nĐể một người sang bàn sau.");
+                case 15: return ("Nhiều quan hệ", "Một khách có thể dính nhiều quan hệ cùng lúc.\n<b>Chạm vào khách</b> để xem thẻ mong muốn: ô có <b>dấu tích</b> là đã ổn, ô có <b>dấu chéo</b> là đã làm Drama tăng.");
+                case 21: return ("Mới: Em bé", $"Em bé phải ngồi <b>sát bố/mẹ</b>: {G}−5%{E}.\nNgồi xa bố mẹ: khóc ré {B}+15%{E}.");
+                case 24: return ("Mới: Thầm thương", $"Ngồi <b>sát</b> người mình thầm thương: {G}−12%{E}.");
+                default: return null;
+            }
+        }
+
+        void StartIntro(int index, string blockerTip)
+        {
+            tutStep = 0; tutBestSeat = null; hud.Coach(null);
+            bool fresh = introShownFor != index;          // a restart of the same level skips the cards
+            introShownFor = index;
+            string goal = $"Mời hết {sim.Total} khách vào bàn · giữ Drama dưới 100%";
+            var intro = fresh ? RuleIntro(index + 1) : null;
+            if (intro == null && fresh && blockerTip != null) intro = ("Mới!", blockerTip + "\n\n" + goal + ".");
+            if (intro != null)
+            {
+                hud.GoalCard(intro.Value.title, intro.Value.body, index == 0 ? "Chơi thôi!" : "Đã hiểu", () =>
+                {
+                    if (index == 0) BeginLevelOneTutorial();
+                    else hud.Toast(goal, 4f);
+                });
+                return;
+            }
+            string tierLine = sim.Tier == "super" ? "SIÊU KHÓ! " : sim.Tier == "hard" ? "KHÓ! " : "";
+            hud.Toast(tierLine + goal, 4f);
+        }
+
+        void BeginLevelOneTutorial()
+        {
+            tutStep = 1;
+            GuestView first = null;
+            foreach (var id in freeIds) if (views.TryGetValue(id, out var v) && v) { first = v; break; }
+            hud.Coach("Chạm vào một khách có <b>vòng vàng</b> dưới chân.", first ? first.EmoteAnchor : null);
+        }
+
+        /// <summary>Called after a guest is picked up; points at the best lit seat while the tutorial runs.</summary>
+        void TutorialOnSelect()
+        {
+            if (tutStep == 1 || tutStep == 3)
+            {
+                tutStep = 2;
+                hud.Coach("Ghế <b>đang sáng</b> là chỗ khách được ngồi. Số trên ghế = Drama sẽ đổi (OK = không đổi, <b>★</b> = tốt nhất). Chạm vào ghế!", tutBestSeat);
+            }
+            else if (levelIndex == 1 && !hud.GoalOpen && tutBestSeat && !explainedChips)
+            {
+                explainedChips = true;
+                hud.Coach("<color=#2F9E6E>Xanh</color> = Drama giảm, <color=#D63A3A>đỏ</color> = Drama tăng. Chưa chắc thì chọn ghế có <b>★</b>.", tutBestSeat);
+            }
+        }
+        bool explainedChips;
+
+        void TutorialOnSeat()
+        {
+            if (tutStep == 2)
+            {
+                tutStep = 4;
+                hud.Coach("Chuẩn rồi! Khách <b>không có vòng</b> đang bị chặn — mời người đứng trước đi trước. Mời hết khách là thắng!");
+                StartCoroutine(Later(5f, () => { if (tutStep == 4 && hud.CoachActive) hud.Coach(null); }));
+            }
+            else if (explainedChips && hud.CoachActive) hud.Coach(null);
+        }
+
+        void TutorialOnTableDone()
+        {
+            if (explainedTable) return;
+            explainedTable = true;
+            hud.Coach("Bàn đủ 4 người sẽ được <b>dọn đi</b>, bàn mới cùng màu thay vào. Ai đã ngồi thì không đổi chỗ được nữa — nhìn số trên ghế trước khi chọn!");
+            StartCoroutine(Later(5.5f, () => hud.Coach(null)));
+        }
+
+        void TutorialOnDramaUp(int delta)
+        {
+            if (explainedDrama || delta <= 0) return;
+            explainedDrama = true;
+            hud.Coach($"Drama vừa tăng {delta}%! Đầy 100% là đám cưới đổ vỡ. <b>Chạm vào khách</b> để xem họ muốn ngồi cạnh ai.");
+            StartCoroutine(Later(5.5f, () => hud.Coach(null)));
         }
 
         /// <summary>
@@ -1010,6 +1112,14 @@ namespace WeddingChaos.View
             }
             else hud.Toast($"Bàn {Palette.InviteName(g.Color)} đang dọn, chờ chút hoặc cho khách ra Sảnh chờ.");
             hud.SetChips(chips);
+            tutBestSeat = null;
+            if (chips.Count > 0 && tv)
+            {
+                int bi = 0; for (int i = 1; i < chips.Count; i++) if (chips[i].Item2 < chips[bi].Item2) bi = i;
+                float bestD = float.MaxValue;
+                foreach (var a in tv.Anchors) { float d = (a.position + Vector3.up - chips[bi].Item1).sqrMagnitude; if (d < bestD) { bestD = d; tutBestSeat = a; } }
+            }
+            TutorialOnSelect();
         }
 
         void Deselect()
@@ -1220,6 +1330,7 @@ namespace WeddingChaos.View
             RefreshCrowd(); RefreshBoosters();
             HandleBlockerEvents(false);
             StartCoroutine(SeatRoutine(gv, start, path, src.Bench, tv, k, res));
+            TutorialOnSeat();
             return true;
         }
 
@@ -1353,6 +1464,8 @@ namespace WeddingChaos.View
                 if (e.LocksTable) lockedUntil[tv.Color] = Time.time + 2.5f;
             }
             ReactHall(net, tv.transform.position + Vector3.up);
+            if (net == 0 && res.Effects.Count == 0) hud.Popup(tv.transform.position + Vector3.up * 1.4f, "Chuẩn chỗ!", true);
+            TutorialOnDramaUp(net);
             yield return Perform(res, gv, tv, seat);
 
             if (res.TableCompleted)
@@ -1367,6 +1480,7 @@ namespace WeddingChaos.View
                 coins += res.PerfectTable ? 15 : 5; hud.SetCoins(coins);
                 Sfx.Play("table_done"); Sfx.Play("cheer", res.PerfectTable ? 1f : 0.7f);
                 StartCoroutine(Later(0.5f, () => Sfx.Play("coin")));
+                TutorialOnTableDone();
                 yield return tv.Celebrate();
                 PushDrama();
                 if (res.NewTableSpawned) { tables[tv.Color] = TableView.Create(tv.Color, tablePos[tv.Color], world, popIn: true); DecorateReservations(tables[tv.Color]); }

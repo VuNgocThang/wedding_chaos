@@ -406,8 +406,74 @@ namespace WeddingChaos.View
             if (boosters.TryGetValue(id, out var b)) b.btn.targetGraphic.color = on ? Palette.Hex("#FFE07A") : Color.white;
         }
 
+        // ---------- coach (tutorial) ----------
+
+        RectTransform coach, coachArrow; Text coachText; Transform coachTarget; Vector3? coachPoint;
+
+        /// <summary>
+        /// Tutorial helper: a speech card above the boosters plus a bouncing arrow over a world object or point.
+        /// Coach(null) hides it. While the coach talks the bottom toast stays hidden so the two never overlap.
+        /// </summary>
+        public void Coach(string text, Transform target = null, Vector3? point = null)
+        {
+            if (coach == null)
+            {
+                coach = Card("Coach", safe, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 300), new Vector2(960, 170), Color.white);
+                var tag = R("Tag", coach, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(30, 0), new Vector2(230, 52));
+                Img(tag, "ui_pill", Palette.Accent);
+                Txt(Fill(tag, "Text", 0, 3, 0, 0), "HƯỚNG DẪN", Display, 30, Color.white, TextAnchor.MiddleCenter);
+                coachText = Txt(Fill(coach, "Text", 36, 14, 36, 24), "", BodyHeavy, 36, Palette.Ink, TextAnchor.MiddleLeft);
+                coachText.resizeTextForBestFit = true; coachText.resizeTextMinSize = 26; coachText.resizeTextMaxSize = 36;
+                coachText.horizontalOverflow = HorizontalWrapMode.Wrap; coachText.verticalOverflow = VerticalWrapMode.Truncate;
+                coachArrow = R("CoachArrow", popupLayer, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0f), Vector2.zero, new Vector2(110, 110));
+                Img(coachArrow, "pointer", Color.white);
+            }
+            bool on = !string.IsNullOrEmpty(text);
+            coach.gameObject.SetActive(on);
+            coach.parent.Find("CoachShadow").gameObject.SetActive(on);
+            if (on) { coachText.text = text; coach.localScale = Vector3.one * 1.06f; StartCoroutine(Settle(coach)); toast.gameObject.SetActive(false); }
+            coachTarget = target; coachPoint = point;
+            coachArrow.gameObject.SetActive(on && (target != null || point.HasValue));
+        }
+
+        public bool CoachActive => coach != null && coach.gameObject.activeSelf;
+
+        void UpdateCoachArrow()
+        {
+            if (coachArrow == null || !coachArrow.gameObject.activeSelf) return;
+            if (coachTarget == null && !coachPoint.HasValue) { coachArrow.gameObject.SetActive(false); return; }
+            var w = coachTarget ? coachTarget.position : coachPoint.Value;
+            coachArrow.anchoredPosition = WorldToSafe(w) + new Vector2(0, 40 + Mathf.Abs(Mathf.Sin(Time.unscaledTime * 5f)) * 34);
+            coachArrow.SetAsLastSibling();
+        }
+
+        GameObject goalPanel;
+
+        /// <summary>A centred card that blocks play until the player taps the button (level goals, tutorial intros).</summary>
+        public void GoalCard(string title, string body, string button, Action onOk)
+        {
+            if (goalPanel) Destroy(goalPanel);
+            goalPanel = Fill(transform, "Goal").gameObject;
+            var dim = goalPanel.AddComponent<Image>(); dim.color = new Color(0.23f, 0.15f, 0.19f, 0.55f);
+            var card = Card("GoalCard", goalPanel.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 760), Color.white);
+            var head = R("Head", card, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(620, 110));
+            Img(head, "ui_pill", Palette.Accent); Shadow(head.GetComponent<Image>(), -6, 0.3f);
+            Txt(Fill(head, "Text", 10, 6, 10, 0), title, Display, 52, Color.white, TextAnchor.MiddleCenter);
+            var t = Txt(R("Body", card, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(-110, -300)), body, BodyHeavy, 40, Palette.Ink, TextAnchor.MiddleLeft);
+            t.supportRichText = true; t.resizeTextForBestFit = true; t.resizeTextMinSize = 28; t.resizeTextMaxSize = 40;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Truncate;
+            PillButton(card, button, Palette.Accent, Color.white, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 50), new Vector2(460, 110), 48, () =>
+            {
+                Destroy(goalPanel); goalPanel = null; onOk?.Invoke();
+            });
+            card.localScale = Vector3.one * 0.9f; StartCoroutine(Settle(card));
+        }
+
+        public bool GoalOpen => goalPanel != null;
+
         public void Toast(string text, float seconds = 2.6f)
         {
+            toast.anchoredPosition = new Vector2(0, CoachActive ? 500 : 318);   // sit above the coach card while it talks
             toastText.text = text;
             toast.gameObject.SetActive(!string.IsNullOrEmpty(text));
             toastUntil = Time.time + seconds;
@@ -546,12 +612,18 @@ namespace WeddingChaos.View
         {
             foreach (var c in chips) if (c.rect) Destroy(c.rect.gameObject);
             chips.Clear();
+            // every seat gets a chip so the player always sees what a choice does: green = drama down,
+            // red = drama up, white "OK" = no change. The single best seat also gets a star.
+            int best = int.MaxValue, bestCount = 0;
+            foreach (var (_, d) in list) { if (d < best) { best = d; bestCount = 1; } else if (d == best) bestCount++; }
             foreach (var (world, delta) in list)
             {
-                if (delta == 0) continue;
-                var r = R("Chip", chipLayer, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(118, 58));
-                var img = Img(r, "ui_pill", delta > 0 ? Palette.Bad : Palette.Good); Shadow(img, -4, 0.3f);
-                Txt(Fill(r, "Text", 0, 3, 0, 0), (delta > 0 ? "+" : "−") + Mathf.Abs(delta), Display, 40, Color.white, TextAnchor.MiddleCenter);
+                var r = R("Chip", chipLayer, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(delta == 0 ? 96 : 118, 58));
+                var img = Img(r, "ui_pill", delta > 0 ? Palette.Bad : delta < 0 ? Palette.Good : Color.white); Shadow(img, -4, 0.3f);
+                string label = delta == 0 ? "OK" : (delta > 0 ? "+" : "−") + Mathf.Abs(delta) + "%";
+                Txt(Fill(r, "Text", 0, 3, 0, 0), label, Display, delta == 0 ? 34 : 36, delta == 0 ? Palette.Ink : Color.white, TextAnchor.MiddleCenter);
+                if (delta == best && list.Count > 1 && bestCount < list.Count)
+                    Img(R("Best", r, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 0f), new Vector2(0, -6), new Vector2(54, 54)), "star", Color.white);
                 chips.Add((r, world));
             }
         }
@@ -601,6 +673,7 @@ namespace WeddingChaos.View
         {
             if (Screen.safeArea != lastSafe) ApplySafeArea();
             FitScaler();
+            UpdateCoachArrow();
             for (int i = badges.Count - 1; i >= 0; i--)
             {
                 var b = badges[i];
